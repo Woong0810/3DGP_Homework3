@@ -11,9 +11,14 @@ static const int UI_TUTORIAL_OBJECT = 2;
 static const int UI_LEVEL1_OBJECT = 3;
 static const int UI_LEVEL2_OBJECT = 4;
 static const int UI_LEVEL3_OBJECT = 5;
-static const int UI_START_OBJECT = 6;
-static const int UI_END_OBJECT = 7;
-static const int WORLD_OBJECT_START = 8;
+static const int UI_TUTORIAL_START_OBJECT = 6;
+static const int UI_LEVEL1_START_OBJECT = 7;
+static const int UI_LEVEL2_START_OBJECT = 8;
+static const int UI_LEVEL3_START_OBJECT = 9;
+static const int UI_END_OBJECT = 10;
+static const int UI_MENU_START_FIRST_OBJECT = UI_TUTORIAL_START_OBJECT;
+static const int UI_MENU_START_COUNT = 4;
+static const int WORLD_OBJECT_START = 11;
 static const int WORLD_OBJECT_COUNT = 8;
 static const int TOTAL_SCENE_OBJECTS = WORLD_OBJECT_START + WORLD_OBJECT_COUNT;
 
@@ -103,6 +108,16 @@ void CScene::SetSceneMode(GAME_SCENE_MODE nSceneMode)
 		m_fTitleHoverRotation = 0.0f;
 		m_fNameHoverRotation = 0.0f;
 	}
+	if (m_nSceneMode != GAME_SCENE_MENU)
+	{
+		for (int i = 0; i < UI_MENU_START_COUNT; i++)
+		{
+			m_bMenuStartHovered[i] = false;
+			m_fMenuStartHoverRotation[i] = 0.0f;
+		}
+		m_bMenuEndHovered = false;
+		m_fMenuEndHoverRotation = 0.0f;
+	}
 }
 
 bool CScene::IsVisibleObject(int nObject) const
@@ -122,9 +137,30 @@ bool CScene::IsStartNameHover(int x, int y) const
 	return((x >= 420) && (x <= 860) && (y >= 385) && (y <= 540));
 }
 
-bool CScene::IsMenuStartClick(int x, int y) const
+bool CScene::IsMenuStartHover(int x, int y, int *pnMenuItem) const
 {
-	return((x >= 460) && (x <= 820) && (y >= 455) && (y <= 540));
+	static const RECT rcMenuStarts[UI_MENU_START_COUNT] =
+	{
+		{ 760, 80, 1060, 170 },
+		{ 760, 210, 1060, 300 },
+		{ 760, 340, 1060, 430 },
+		{ 760, 470, 1060, 560 }
+	};
+
+	for (int i = 0; i < UI_MENU_START_COUNT; i++)
+	{
+		if ((x >= rcMenuStarts[i].left) && (x <= rcMenuStarts[i].right) && (y >= rcMenuStarts[i].top) && (y <= rcMenuStarts[i].bottom))
+		{
+			if (pnMenuItem) *pnMenuItem = i;
+			return(true);
+		}
+	}
+	return(false);
+}
+
+bool CScene::IsMenuEndHover(int x, int y) const
+{
+	return((x >= 540) && (x <= 740) && (y >= 585) && (y <= 700));
 }
 void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList)
 {
@@ -142,12 +178,17 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_ppGameObjects[UI_NAME_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/MyName.bin", XMFLOAT3(-12.0f, -25.0f, 0.0f), 30.0f);
 	m_xmf4x4StartTitleBaseTransform = m_ppGameObjects[UI_TITLE_OBJECT]->m_xmf4x4Transform;
 	m_xmf4x4StartNameBaseTransform = m_ppGameObjects[UI_NAME_OBJECT]->m_xmf4x4Transform;
-	m_ppGameObjects[UI_TUTORIAL_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Tutorial.bin", XMFLOAT3(-80.0f, 110.0f, 140.0f), 6.0f);
-	m_ppGameObjects[UI_LEVEL1_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_1.bin", XMFLOAT3(-80.0f, 75.0f, 140.0f), 6.0f);
-	m_ppGameObjects[UI_LEVEL2_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_2.bin", XMFLOAT3(-80.0f, 40.0f, 140.0f), 6.0f);
-	m_ppGameObjects[UI_LEVEL3_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_3.bin", XMFLOAT3(-80.0f, 5.0f, 140.0f), 6.0f);
-	m_ppGameObjects[UI_START_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Start.bin", XMFLOAT3(-55.0f, -30.0f, 140.0f), 6.0f);
-	m_ppGameObjects[UI_END_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/End.bin", XMFLOAT3(-45.0f, -65.0f, 140.0f), 6.0f);
+	m_ppGameObjects[UI_TUTORIAL_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Tutorial.bin", XMFLOAT3(-75.0f, 45.0f, 0.0f), 11.0f);
+	m_ppGameObjects[UI_LEVEL1_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_1.bin", XMFLOAT3(-75.0f, 20.0f, 0.0f), 11.0f);
+	m_ppGameObjects[UI_LEVEL2_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_2.bin", XMFLOAT3(-75.0f, -5.0f, 0.0f), 11.0f);
+	m_ppGameObjects[UI_LEVEL3_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_3.bin", XMFLOAT3(-75.0f, -30.0f, 0.0f), 11.0f);
+	m_ppGameObjects[UI_TUTORIAL_START_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Start.bin", XMFLOAT3(45.0f, 45.0f, 0.0f), 11.0f);
+	m_ppGameObjects[UI_LEVEL1_START_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Start.bin", XMFLOAT3(45.0f, 20.0f, 0.0f), 11.0f);
+	m_ppGameObjects[UI_LEVEL2_START_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Start.bin", XMFLOAT3(45.0f, -5.0f, 0.0f), 11.0f);
+	m_ppGameObjects[UI_LEVEL3_START_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Start.bin", XMFLOAT3(45.0f, -30.0f, 0.0f), 11.0f);
+	m_ppGameObjects[UI_END_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/End.bin", XMFLOAT3(-10.0f, -55.0f, 0.0f), 11.0f);
+	for (int i = 0; i < UI_MENU_START_COUNT; i++) m_xmf4x4MenuStartBaseTransforms[i] = m_ppGameObjects[UI_MENU_START_FIRST_OBJECT + i]->m_xmf4x4Transform;
+	m_xmf4x4MenuEndBaseTransform = m_ppGameObjects[UI_END_OBJECT]->m_xmf4x4Transform;
 
 	int nMeshesInHierarchy = 0;
 	int pnMaterialsInHierarchy[64];
@@ -319,7 +360,7 @@ void CScene::UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList)
 {
 	::memcpy(m_pcbMappedLights->m_pLights, m_pLights, sizeof(LIGHT) * m_nLights);
 
-	if (m_nSceneMode != GAME_SCENE_LEVEL1)
+	if (m_nSceneMode < GAME_SCENE_TUTORIAL)
 	{
 		XMFLOAT4 xmf4UiAmbient = XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f);
 		int nUiLights = 0;
@@ -358,6 +399,14 @@ bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam,
 		m_bNameHovered = IsStartNameHover(x, y);
 		return(true);
 	}
+	if ((m_nSceneMode == GAME_SCENE_MENU) && (nMessageID == WM_MOUSEMOVE))
+	{
+		int nHoveredMenuItem = -1;
+		IsMenuStartHover(x, y, &nHoveredMenuItem);
+		for (int i = 0; i < UI_MENU_START_COUNT; i++) m_bMenuStartHovered[i] = (i == nHoveredMenuItem);
+		m_bMenuEndHovered = IsMenuEndHover(x, y);
+		return(true);
+	}
 	if (nMessageID != WM_LBUTTONUP) return(false);
 	if ((m_nSceneMode == GAME_SCENE_START) && IsStartNameHover(x, y))
 	{
@@ -365,27 +414,41 @@ bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam,
 		m_fNameExplosionElapsedTime = 0.0f;
 		return(true);
 	}
-	if ((m_nSceneMode == GAME_SCENE_MENU) && IsMenuStartClick(x, y))
+	if (m_nSceneMode == GAME_SCENE_MENU)
 	{
-		SetSceneMode(GAME_SCENE_LEVEL1);
-		return(true);
+		int nSelectedMenuItem = -1;
+		if (IsMenuStartHover(x, y, &nSelectedMenuItem))
+		{
+			SetSceneMode((GAME_SCENE_MODE)(GAME_SCENE_TUTORIAL + nSelectedMenuItem));
+			return(true);
+		}
+		if (IsMenuEndHover(x, y))
+		{
+			::PostQuitMessage(0);
+			return(true);
+		}
 	}
-	return(m_nSceneMode != GAME_SCENE_LEVEL1);
+	return(m_nSceneMode < GAME_SCENE_TUTORIAL);
 }
 
 bool CScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
 {
 	if (nMessageID == WM_KEYUP)
 	{
-		if ((wParam == VK_ESCAPE) && (m_nSceneMode == GAME_SCENE_LEVEL1))
+		if ((wParam == VK_ESCAPE) && (m_nSceneMode >= GAME_SCENE_TUTORIAL))
 		{
 			SetSceneMode(GAME_SCENE_MENU);
 			return(true);
 		}
-		return(m_nSceneMode != GAME_SCENE_LEVEL1);
+		if ((wParam == VK_END) && (m_nSceneMode == GAME_SCENE_MENU))
+		{
+			::PostQuitMessage(0);
+			return(true);
+		}
+		return(m_nSceneMode < GAME_SCENE_TUTORIAL);
 	}
 
-	if (m_nSceneMode != GAME_SCENE_LEVEL1) return(true);
+	if (m_nSceneMode < GAME_SCENE_TUTORIAL) return(true);
 	if (nMessageID == WM_KEYDOWN)
 	{
 		switch (wParam)
@@ -404,7 +467,7 @@ bool CScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wPar
 }
 bool CScene::ProcessInput(UCHAR *pKeysBuffer)
 {
-	return(m_nSceneMode != GAME_SCENE_LEVEL1);
+	return(m_nSceneMode < GAME_SCENE_TUTORIAL);
 }
 
 void CScene::AnimateObjects(float fTimeElapsed)
@@ -427,10 +490,14 @@ void CScene::AnimateObjects(float fTimeElapsed)
 			if (m_bNameExploding)
 			{
 				m_fNameExplosionElapsedTime += fTimeElapsed;
-				m_ppGameObjects[UI_NAME_OBJECT]->Rotate(0.0f, 720.0f * fTimeElapsed, 0.0f);
-				m_ppGameObjects[UI_NAME_OBJECT]->SetScale(1.04f, 1.04f, 1.04f);
-				m_ppGameObjects[UI_NAME_OBJECT]->MoveUp(25.0f * fTimeElapsed);
-				if (m_fNameExplosionElapsedTime >= 0.8f) SetSceneMode(GAME_SCENE_MENU);
+				float fExplosionRatio = m_fNameExplosionElapsedTime / 0.45f;
+				if (fExplosionRatio > 1.0f) fExplosionRatio = 1.0f;
+				float fShake = sinf(fExplosionRatio * XM_2PI * 6.0f) * (1.0f - fExplosionRatio);
+				m_ppGameObjects[UI_NAME_OBJECT]->m_xmf4x4Transform = m_xmf4x4StartNameBaseTransform;
+				m_ppGameObjects[UI_NAME_OBJECT]->Rotate(360.0f * fExplosionRatio, 1080.0f * fExplosionRatio, 540.0f * fExplosionRatio);
+				m_ppGameObjects[UI_NAME_OBJECT]->SetScale(1.0f + (3.5f * fExplosionRatio), 1.0f + (3.5f * fExplosionRatio), 1.0f + (3.5f * fExplosionRatio));
+				m_ppGameObjects[UI_NAME_OBJECT]->SetPosition(-12.0f + (28.0f * fShake), -25.0f + (70.0f * fExplosionRatio), 0.0f);
+				if (m_fNameExplosionElapsedTime >= 0.45f) SetSceneMode(GAME_SCENE_MENU);
 			}
 			else
 			{
@@ -445,7 +512,24 @@ void CScene::AnimateObjects(float fTimeElapsed)
 
 	if (m_nSceneMode == GAME_SCENE_MENU)
 	{
-		if (m_ppGameObjects[UI_START_OBJECT]) m_ppGameObjects[UI_START_OBJECT]->Rotate(0.0f, 35.0f * fTimeElapsed, 0.0f);
+		for (int i = 0; i < UI_MENU_START_COUNT; i++)
+		{
+			CGameObject *pStartObject = m_ppGameObjects[UI_MENU_START_FIRST_OBJECT + i];
+			if (pStartObject)
+			{
+				m_fMenuStartHoverRotation[i] = (m_bMenuStartHovered[i]) ? (m_fMenuStartHoverRotation[i] + 150.0f * fTimeElapsed) : 0.0f;
+				pStartObject->m_xmf4x4Transform = m_xmf4x4MenuStartBaseTransforms[i];
+				if (m_bMenuStartHovered[i]) pStartObject->Rotate(0.0f, m_fMenuStartHoverRotation[i], 0.0f);
+				else pStartObject->UpdateTransform(NULL);
+			}
+		}
+		if (m_ppGameObjects[UI_END_OBJECT])
+		{
+			m_fMenuEndHoverRotation = (m_bMenuEndHovered) ? (m_fMenuEndHoverRotation + 150.0f * fTimeElapsed) : 0.0f;
+			m_ppGameObjects[UI_END_OBJECT]->m_xmf4x4Transform = m_xmf4x4MenuEndBaseTransform;
+			if (m_bMenuEndHovered) m_ppGameObjects[UI_END_OBJECT]->Rotate(0.0f, m_fMenuEndHoverRotation, 0.0f);
+			else m_ppGameObjects[UI_END_OBJECT]->UpdateTransform(NULL);
+		}
 		return;
 	}
 
@@ -464,7 +548,7 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 {
 	pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
 
-	if (m_nSceneMode != GAME_SCENE_LEVEL1)
+	if (m_nSceneMode < GAME_SCENE_TUTORIAL)
 	{
 		pCamera->GenerateViewMatrix(XMFLOAT3(0.0f, 0.0f, -120.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
 	}

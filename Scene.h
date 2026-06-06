@@ -41,7 +41,10 @@ enum GAME_SCENE_MODE
 {
 	GAME_SCENE_START = 0,
 	GAME_SCENE_MENU,
-	GAME_SCENE_LEVEL1
+	GAME_SCENE_TUTORIAL,
+	GAME_SCENE_LEVEL1,
+	GAME_SCENE_LEVEL2,
+	GAME_SCENE_LEVEL3
 };
 
 class CScene
@@ -65,7 +68,7 @@ public:
 	ID3D12RootSignature *GetGraphicsRootSignature() { return(m_pd3dGraphicsRootSignature); }
 
 	bool ProcessInput(UCHAR *pKeysBuffer);
-	bool IsLevelPlaying() const { return(m_nSceneMode == GAME_SCENE_LEVEL1); }
+	bool IsLevelPlaying() const { return(m_nSceneMode >= GAME_SCENE_TUTORIAL); }
     void AnimateObjects(float fTimeElapsed);
     void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera=NULL);
 
@@ -95,7 +98,8 @@ private:
 	bool IsVisibleObject(int nObject) const;
 	bool IsStartTitleHover(int x, int y) const;
 	bool IsStartNameHover(int x, int y) const;
-	bool IsMenuStartClick(int x, int y) const;
+	bool IsMenuStartHover(int x, int y, int *pnMenuItem = NULL) const;
+	bool IsMenuEndHover(int x, int y) const;
 
 	GAME_SCENE_MODE			m_nSceneMode = GAME_SCENE_START;
 	bool						m_bTitleHovered = false;
@@ -107,4 +111,10 @@ private:
 	float						m_fNameHoverRotation = 0.0f;
 	XMFLOAT4X4				m_xmf4x4StartTitleBaseTransform;
 	XMFLOAT4X4				m_xmf4x4StartNameBaseTransform;
+	bool						m_bMenuStartHovered[4] = { false, false, false, false };
+	bool						m_bMenuEndHovered = false;
+	float						m_fMenuStartHoverRotation[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float						m_fMenuEndHoverRotation = 0.0f;
+	XMFLOAT4X4				m_xmf4x4MenuStartBaseTransforms[4];
+	XMFLOAT4X4				m_xmf4x4MenuEndBaseTransform;
 };
