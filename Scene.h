@@ -38,6 +38,7 @@ struct LIGHTS
 };
 
 class CTerrainObject;
+class CProjectileObject;
 
 enum GAME_SCENE_MODE
 {
@@ -100,6 +101,7 @@ private:
 	void SetSceneMode(GAME_SCENE_MODE nSceneMode);
 	void ResetLevel1();
 	void ClampPlayerToTerrain();
+	void FirePlayerProjectile();
 	bool IsVisibleObject(int nObject) const;
 	bool IsStartTitleHover(int x, int y) const;
 	bool IsStartNameHover(int x, int y) const;
@@ -122,4 +124,7 @@ private:
 	float						m_fMenuEndHoverRotation = 0.0f;
 	XMFLOAT4X4				m_xmf4x4MenuStartBaseTransforms[4];
 	XMFLOAT4X4				m_xmf4x4MenuEndBaseTransform;
+	CProjectileObject			**m_ppProjectiles = NULL;
+	int							m_nProjectiles = 0;
+	float						m_fProjectileFireCooldown = 0.0f;
 };

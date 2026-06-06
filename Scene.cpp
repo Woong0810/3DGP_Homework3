@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "Scene.h"
 #include "Terrain.h"
+#include "Bullet.h"
 
 static const int UI_TITLE_OBJECT = 0;
 static const int UI_NAME_OBJECT = 1;
@@ -139,6 +140,8 @@ void CScene::ResetLevel1()
 
 	m_pPlayer->SetPosition(xmf3StartPosition);
 	m_pPlayer->SetVelocity(XMFLOAT3(0.0f, 0.0f, 0.0f));
+	for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i]) m_ppProjectiles[i]->Reset();
+	m_fProjectileFireCooldown = 0.0f;
 
 	char pstrDebug[128];
 	sprintf_s(pstrDebug, "Level-1 Reset Player Position: %.2f, %.2f, %.2f\n", xmf3StartPosition.x, xmf3StartPosition.y, xmf3StartPosition.z);
@@ -160,6 +163,37 @@ void CScene::ClampPlayerToTerrain()
 	}
 }
 
+void CScene::FirePlayerProjectile()
+{
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || !m_pPlayer || (m_fProjectileFireCooldown > 0.0f)) return;
+
+	CProjectileObject *pProjectile = NULL;
+	for (int i = 0; i < m_nProjectiles; i++)
+	{
+		if (m_ppProjectiles[i] && !m_ppProjectiles[i]->IsActive())
+		{
+			pProjectile = m_ppProjectiles[i];
+			break;
+		}
+	}
+	if (!pProjectile) return;
+
+	XMFLOAT3 xmf3Look = Vector3::Normalize(m_pPlayer->GetLookVector());
+	XMFLOAT3 xmf3Up = Vector3::Normalize(m_pPlayer->GetUpVector());
+	XMFLOAT3 xmf3PlayerPosition = m_pPlayer->GetPosition();
+	XMFLOAT3 xmf3FirePosition = Vector3::Add(Vector3::Add(xmf3PlayerPosition, xmf3Look, 45.0f), xmf3Up, -6.0f);
+
+	m_pPlayer->OnPrepareRender();
+	CGameObject *pMissileFrame = m_pPlayer->FindFrame("Hellfire_Missile");
+	if (pMissileFrame)
+	{
+		XMFLOAT3 xmf3MissileFramePosition = pMissileFrame->GetPosition();
+		xmf3FirePosition = Vector3::Add(Vector3::Add(xmf3MissileFramePosition, xmf3Look, 20.0f), xmf3Up, -2.0f);
+	}
+
+	pProjectile->Fire(xmf3FirePosition, xmf3Look);
+	m_fProjectileFireCooldown = PROJECTILE_FIRE_COOLDOWN;
+}
 bool CScene::IsVisibleObject(int nObject) const
 {
 	if (m_nSceneMode == GAME_SCENE_START) return((nObject == UI_TITLE_OBJECT) || (nObject == UI_NAME_OBJECT));
@@ -329,6 +363,16 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_pTerrain->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnTerrainMaterials);
 	m_ppGameObjects[WORLD_OBJECT_START + 8] = m_pTerrain;
 
+	m_nProjectiles = MAX_PROJECTILES;
+	m_ppProjectiles = new CProjectileObject*[m_nProjectiles];
+	int pnProjectileMaterials[1] = { 1 };
+	for (int i = 0; i < m_nProjectiles; i++)
+	{
+		m_ppProjectiles[i] = new CProjectileObject(pd3dDevice, pd3dCommandList);
+		m_ppProjectiles[i]->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnProjectileMaterials);
+	}
+	m_fProjectileFireCooldown = 0.0f;
+
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
 }
 
@@ -342,6 +386,14 @@ void CScene::ReleaseObjects()
 	{
 		for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->Release();
 		delete[] m_ppGameObjects;
+	}
+
+	if (m_ppProjectiles)
+	{
+		for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i]) m_ppProjectiles[i]->Release();
+		delete[] m_ppProjectiles;
+		m_ppProjectiles = NULL;
+		m_nProjectiles = 0;
 	}
 
 	if (m_pLights) delete[] m_pLights;
@@ -428,11 +480,13 @@ void CScene::ReleaseShaderVariables()
 	}
 
 	for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->ReleaseShaderVariables();
+	for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i]) m_ppProjectiles[i]->ReleaseShaderVariables();
 }
 
 void CScene::ReleaseUploadBuffers()
 {
 	for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->ReleaseUploadBuffers();
+	for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i]) m_ppProjectiles[i]->ReleaseUploadBuffers();
 }
 
 bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
@@ -498,6 +552,7 @@ bool CScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wPar
 }
 bool CScene::ProcessInput(UCHAR *pKeysBuffer)
 {
+	if ((m_nSceneMode == GAME_SCENE_LEVEL1) && (pKeysBuffer[VK_SPACE] & 0xF0)) FirePlayerProjectile();
 	return(m_nSceneMode < GAME_SCENE_TUTORIAL);
 }
 
@@ -569,6 +624,12 @@ void CScene::AnimateObjects(float fTimeElapsed)
 		if (m_ppGameObjects[i]) m_ppGameObjects[i]->Animate(fTimeElapsed, NULL);
 	}
 
+	if (m_nSceneMode == GAME_SCENE_LEVEL1)
+	{
+		if (m_fProjectileFireCooldown > 0.0f) m_fProjectileFireCooldown -= fTimeElapsed;
+		for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i] && m_ppProjectiles[i]->IsActive()) m_ppProjectiles[i]->Animate(fTimeElapsed, NULL);
+	}
+
 	ClampPlayerToTerrain();
 
 	if (m_pLights && m_pPlayer)
@@ -600,6 +661,17 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 		{
 			m_ppGameObjects[i]->UpdateTransform(NULL);
 			m_ppGameObjects[i]->Render(pd3dCommandList, pCamera, m_ppGameObjects[i]->m_ppd3dcbInstancingGameObjects, m_ppGameObjects[i]->m_ppcbMappedInstancingGameObjects);
+		}
+	}
+
+	if (m_nSceneMode == GAME_SCENE_LEVEL1)
+	{
+		for (int i = 0; i < m_nProjectiles; i++)
+		{
+			if (m_ppProjectiles[i] && m_ppProjectiles[i]->IsActive())
+			{
+				m_ppProjectiles[i]->Render(pd3dCommandList, pCamera, m_ppProjectiles[i]->m_ppd3dcbInstancingGameObjects, m_ppProjectiles[i]->m_ppcbMappedInstancingGameObjects);
+			}
 		}
 	}
 }
