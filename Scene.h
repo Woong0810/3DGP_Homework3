@@ -165,6 +165,7 @@ private:
 	float						m_fProjectileFireCooldown = 0.0f;
 	CHudBarObject				**m_ppHudBars = NULL;
 	int							m_nHudBars = 0;
+	CCamera						*m_pHudCamera = NULL;
 	int							m_nPlayerMaxHP = 100;
 	int							m_nPlayerHP = 100;
 	int							m_nLastHitLevel1TargetIndex = -1;

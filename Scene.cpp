@@ -577,30 +577,17 @@ void CScene::RenderLevel1HudBars(ID3D12GraphicsCommandList *pd3dCommandList, CCa
 
 void CScene::RenderLevel1HudOverlay(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
 {
-	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || !pd3dCommandList || !pCamera || !m_ppHudBars) return;
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || !pd3dCommandList || !pCamera || !m_ppHudBars || !m_pHudCamera) return;
 
 	UpdateLevel1HudBars();
 
-	XMFLOAT3 xmf3OldPosition = pCamera->GetPosition();
-	XMFLOAT3 xmf3OldRight = pCamera->GetRightVector();
-	XMFLOAT3 xmf3OldUp = pCamera->GetUpVector();
-	XMFLOAT3 xmf3OldLook = pCamera->GetLookVector();
-	XMFLOAT3 xmf3OldLookAt = pCamera->GetLookAtPosition();
-
 	pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
-	pCamera->GenerateViewMatrix(XMFLOAT3(0.0f, 0.0f, -120.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
-	pCamera->SetViewportsAndScissorRects(pd3dCommandList);
-	pCamera->UpdateShaderVariables(pd3dCommandList);
+	m_pHudCamera->GenerateViewMatrix(XMFLOAT3(0.0f, 0.0f, -120.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
+	m_pHudCamera->SetViewportsAndScissorRects(pd3dCommandList);
+	m_pHudCamera->UpdateShaderVariables(pd3dCommandList);
 	UpdateShaderVariables(pd3dCommandList);
 	pd3dCommandList->SetGraphicsRootConstantBufferView(2, m_pd3dcbLights->GetGPUVirtualAddress());
-	RenderLevel1HudBars(pd3dCommandList, pCamera);
-
-	pCamera->SetPosition(xmf3OldPosition);
-	pCamera->GetRightVector() = xmf3OldRight;
-	pCamera->GetUpVector() = xmf3OldUp;
-	pCamera->GetLookVector() = xmf3OldLook;
-	pCamera->SetLookAtPosition(xmf3OldLookAt);
-	pCamera->RegenerateViewMatrix();
+	RenderLevel1HudBars(pd3dCommandList, m_pHudCamera);
 }
 bool CScene::IsActiveLevel1TargetObject(int nObjectIndex) const
 {
@@ -758,6 +745,16 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_ppHudBars[HUD_ENEMY_BACKGROUND] = new CHudBarObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.25f, 0.25f, 0.25f, 1.0f), XMFLOAT4(0.20f, 0.20f, 0.20f, 1.0f), XMFLOAT4(0.08f, 0.08f, 0.08f, 1.0f));
 	m_ppHudBars[HUD_ENEMY_GAUGE] = new CHudBarObject(pd3dDevice, pd3dCommandList, XMFLOAT4(1.0f, 0.25f, 0.08f, 1.0f), XMFLOAT4(1.0f, 0.28f, 0.06f, 1.0f), XMFLOAT4(0.85f, 0.08f, 0.02f, 1.0f));
 	for (int i = 0; i < m_nHudBars; i++) if (m_ppHudBars[i]) m_ppHudBars[i]->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnHudMaterials);
+
+	if (!m_pHudCamera)
+	{
+		m_pHudCamera = new CCamera();
+		m_pHudCamera->CreateShaderVariables(pd3dDevice, pd3dCommandList);
+		m_pHudCamera->GenerateProjectionMatrix(1.01f, 5000.0f, ASPECT_RATIO, 60.0f);
+		m_pHudCamera->SetViewport(0, 0, FRAME_BUFFER_WIDTH, FRAME_BUFFER_HEIGHT, 0.0f, 1.0f);
+		m_pHudCamera->SetScissorRect(0, 0, FRAME_BUFFER_WIDTH, FRAME_BUFFER_HEIGHT);
+		m_pHudCamera->GenerateViewMatrix(XMFLOAT3(0.0f, 0.0f, -120.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
+	}
 	m_fProjectileFireCooldown = 0.0f;
 
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
@@ -768,6 +765,13 @@ void CScene::ReleaseObjects()
 	if (m_pd3dGraphicsRootSignature) m_pd3dGraphicsRootSignature->Release();
 
 /***/	ReleaseShaderVariables();
+
+	if (m_pHudCamera)
+	{
+		m_pHudCamera->ReleaseShaderVariables();
+		delete m_pHudCamera;
+		m_pHudCamera = NULL;
+	}
 
 	if (m_ppGameObjects)
 	{
