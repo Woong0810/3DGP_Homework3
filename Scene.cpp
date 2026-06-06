@@ -286,6 +286,11 @@ void CScene::InitializeLevel1Targets()
 	const float pfCollisionRadii[4] = { 9.0f, 9.0f, 8.0f, 9.0f };
 	const float pfMoveSpeeds[4] = { 1.1f, 1.0f, 1.35f, 0.65f };
 	const float pfMoveRadii[4] = { 22.0f, 24.0f, 28.0f, 18.0f };
+	const float pfMovePhases[4] = { 0.0f, 1.7f, 2.8f, 4.1f };
+	const float pfMoveRadiusX[4] = { 28.0f, 30.0f, 36.0f, 30.0f };
+	const float pfMoveRadiusZ[4] = { 10.0f, 12.0f, 18.0f, 24.0f };
+	const float pfBobAmplitudes[4] = { 4.0f, 5.0f, 6.0f, 5.0f };
+	const float pfBobSpeeds[4] = { 1.2f, 1.35f, 1.45f, 1.1f };
 	const float pfFireIntervals[4] = { 2.10f, 2.20f, 1.50f, 1.15f };
 	const int pnProjectileDamages[4] = { 5, 5, 8, 10 };
 
@@ -308,6 +313,11 @@ void CScene::InitializeLevel1Targets()
 		m_pLevel1Targets[i].m_fMoveAngle = 0.0f;
 		m_pLevel1Targets[i].m_fMoveSpeed = pfMoveSpeeds[i];
 		m_pLevel1Targets[i].m_fMoveRadius = pfMoveRadii[i];
+		m_pLevel1Targets[i].m_fMovePhase = pfMovePhases[i];
+		m_pLevel1Targets[i].m_fMoveRadiusX = pfMoveRadiusX[i];
+		m_pLevel1Targets[i].m_fMoveRadiusZ = pfMoveRadiusZ[i];
+		m_pLevel1Targets[i].m_fBobAmplitude = pfBobAmplitudes[i];
+		m_pLevel1Targets[i].m_fBobSpeed = pfBobSpeeds[i];
 		m_pLevel1Targets[i].m_fFireInterval = pfFireIntervals[i];
 		m_pLevel1Targets[i].m_fFireCooldown = pfFireIntervals[i] * (0.55f + 0.12f * (float)i);
 		m_pLevel1Targets[i].m_nProjectileDamage = pnProjectileDamages[i];
@@ -364,20 +374,47 @@ void CScene::ActivateLevel1Wave(int nWave)
 		{
 			target.m_nHP = target.m_nMaxHP;
 			target.m_fMoveAngle = 0.0f;
-		target.m_fFireCooldown = target.m_fFireInterval * (0.55f + 0.12f * (float)i);
+			target.m_fFireCooldown = target.m_fFireInterval * (0.55f + 0.12f * (float)i);
 			target.m_xmf3BasePosition = target.m_xmf3StartPosition;
 			if ((target.m_nObjectIndex >= 0) && (target.m_nObjectIndex < m_nGameObjects) && m_ppGameObjects[target.m_nObjectIndex])
 			{
 				m_ppGameObjects[target.m_nObjectIndex]->m_xmf4x4Transform = target.m_xmf4x4StartTransform;
 				m_ppGameObjects[target.m_nObjectIndex]->SetPosition(target.m_xmf3StartPosition);
+				OrientLevel1TargetToPlayer(i);
 			}
 		}
 	}
 }
 
+void CScene::OrientLevel1TargetToPlayer(int nTargetIndex)
+{
+	if (!m_pPlayer || !m_pLevel1Targets) return;
+	if ((nTargetIndex < 0) || (nTargetIndex >= m_nLevel1Targets)) return;
+
+	SLevel1TargetState& target = m_pLevel1Targets[nTargetIndex];
+	if (!target.m_bActive || target.m_bDestroying) return;
+	if ((target.m_nObjectIndex < 0) || (target.m_nObjectIndex >= m_nGameObjects) || !m_ppGameObjects[target.m_nObjectIndex]) return;
+
+	CGameObject *pTargetObject = m_ppGameObjects[target.m_nObjectIndex];
+	XMFLOAT3 xmf3EnemyPosition = pTargetObject->GetPosition();
+	XMFLOAT3 xmf3PlayerPosition = m_pPlayer->GetPosition();
+	XMFLOAT3 xmf3ToPlayer = Vector3::Subtract(xmf3PlayerPosition, xmf3EnemyPosition);
+	xmf3ToPlayer.y = 0.0f;
+	if (Vector3::Length(xmf3ToPlayer) <= 0.001f) return;
+
+	XMFLOAT3 xmf3Look = Vector3::Normalize(xmf3ToPlayer);
+	const float fEnemyModelYawOffset = -90.0f;
+	float fYaw = XMConvertToDegrees(atan2f(xmf3Look.x, xmf3Look.z));
+	float fFinalYaw = fYaw + fEnemyModelYawOffset;
+
+	pTargetObject->m_xmf4x4Transform = Matrix4x4::Identity();
+	pTargetObject->SetScale(1.0f, 1.0f, 1.0f);
+	pTargetObject->Rotate(0.0f, fFinalYaw, 0.0f);
+	pTargetObject->SetPosition(xmf3EnemyPosition);
+}
 void CScene::UpdateLevel1Targets(float fTimeElapsed)
 {
-	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || !m_pLevel1Targets) return;
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed || !m_pLevel1Targets) return;
 
 	const float fDestroyDuration = 0.45f;
 	for (int i = 0; i < m_nLevel1Targets; i++)
@@ -417,23 +454,16 @@ void CScene::UpdateLevel1Targets(float fTimeElapsed)
 
 		target.m_fMoveAngle += target.m_fMoveSpeed * fTimeElapsed;
 		XMFLOAT3 xmf3Position = target.m_xmf3BasePosition;
-		if (target.m_nWave == 1)
-		{
-			xmf3Position.x = target.m_xmf3BasePosition.x + sinf(target.m_fMoveAngle) * target.m_fMoveRadius;
-		}
-		else if (target.m_nWave == 2)
-		{
-			xmf3Position.x = target.m_xmf3BasePosition.x + sinf(target.m_fMoveAngle) * target.m_fMoveRadius;
-			xmf3Position.z = target.m_xmf3BasePosition.z + cosf(target.m_fMoveAngle * 0.7f) * (target.m_fMoveRadius * 0.35f);
-		}
-		else
-		{
-			xmf3Position.x = target.m_xmf3BasePosition.x + sinf(target.m_fMoveAngle) * target.m_fMoveRadius;
-			xmf3Position.z = target.m_xmf3BasePosition.z + cosf(target.m_fMoveAngle) * target.m_fMoveRadius;
-		}
+		xmf3Position.x = target.m_xmf3BasePosition.x + sinf(target.m_fMoveAngle + target.m_fMovePhase) * target.m_fMoveRadiusX;
+		xmf3Position.z = target.m_xmf3BasePosition.z + cosf((target.m_fMoveAngle * 0.7f) + target.m_fMovePhase) * target.m_fMoveRadiusZ;
+		xmf3Position.y = target.m_xmf3BasePosition.y + sinf((target.m_fMoveAngle * target.m_fBobSpeed) + target.m_fMovePhase) * target.m_fBobAmplitude;
+
+		const float fMinEnemyAltitude = 55.0f;
+		float fTerrainY = (m_pTerrain) ? m_pTerrain->GetHeight(xmf3Position.x, xmf3Position.z) : 0.0f;
+		if (xmf3Position.y < fTerrainY + fMinEnemyAltitude) xmf3Position.y = fTerrainY + fMinEnemyAltitude;
 
 		pTargetObject->SetPosition(xmf3Position);
-		pTargetObject->Rotate(0.0f, target.m_fMoveSpeed * fTimeElapsed * 20.0f, 0.0f);
+		OrientLevel1TargetToPlayer(i);
 	}
 }
 

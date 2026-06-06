@@ -57,6 +57,11 @@ struct SLevel1TargetState
 	float						m_fMoveAngle = 0.0f;
 	float						m_fMoveSpeed = 0.0f;
 	float						m_fMoveRadius = 0.0f;
+	float						m_fMovePhase = 0.0f;
+	float						m_fMoveRadiusX = 0.0f;
+	float						m_fMoveRadiusZ = 0.0f;
+	float						m_fBobAmplitude = 0.0f;
+	float						m_fBobSpeed = 1.0f;
 	float						m_fFireCooldown = 0.0f;
 	float						m_fFireInterval = 2.0f;
 	int							m_nProjectileDamage = 5;
@@ -132,6 +137,7 @@ private:
 	void ResetLevel1Targets();
 	void ActivateLevel1Wave(int nWave);
 	void UpdateLevel1Targets(float fTimeElapsed);
+	void OrientLevel1TargetToPlayer(int nTargetIndex);
 	void UpdateLevel1EnemyFire(float fTimeElapsed);
 	void UpdateLevel1ClearText();
 	void UpdateLevel1HudBars();
