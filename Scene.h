@@ -57,6 +57,9 @@ struct SLevel1TargetState
 	float						m_fMoveAngle = 0.0f;
 	float						m_fMoveSpeed = 0.0f;
 	float						m_fMoveRadius = 0.0f;
+	float						m_fFireCooldown = 0.0f;
+	float						m_fFireInterval = 2.0f;
+	int							m_nProjectileDamage = 5;
 };
 
 enum GAME_SCENE_MODE
@@ -124,17 +127,22 @@ private:
 	void ResetLevel1();
 	void ClampPlayerToTerrain();
 	void FirePlayerProjectile();
+	void FireLevel1EnemyProjectile(int nTargetIndex);
 	void InitializeLevel1Targets();
 	void ResetLevel1Targets();
 	void ActivateLevel1Wave(int nWave);
 	void UpdateLevel1Targets(float fTimeElapsed);
+	void UpdateLevel1EnemyFire(float fTimeElapsed);
 	void UpdateLevel1ClearText();
 	void UpdateLevel1HudBars();
 	void RenderLevel1HudBars(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera);
 	void CheckProjectileTargetCollisions();
+	void CheckEnemyProjectilePlayerCollisions();
 	void ApplyDamageToLevel1Target(int nTargetIndex, int nDamage);
+	void ApplyDamageToPlayer(int nDamage);
 	bool IsCurrentLevel1WaveCleared() const;
 	void AdvanceLevel1WaveIfNeeded();
+	void ResetEnemyProjectiles();
 	int GetHudEnemyTargetIndex() const;
 	bool IsActiveLevel1TargetObject(int nObjectIndex) const;
 	bool IsVisibleObject(int nObject) const;
@@ -163,6 +171,8 @@ private:
 	CProjectileObject			**m_ppProjectiles = NULL;
 	int							m_nProjectiles = 0;
 	float						m_fProjectileFireCooldown = 0.0f;
+	CProjectileObject			**m_ppEnemyProjectiles = NULL;
+	int							m_nEnemyProjectiles = 0;
 	CHudBarObject				**m_ppHudBars = NULL;
 	int							m_nHudBars = 0;
 	CCamera						*m_pHudCamera = NULL;
@@ -175,4 +185,6 @@ private:
 	int							m_nCurrentLevel1Wave = 1;
 	bool						m_bLevel1Cleared = false;
 	float						m_fLevel1ClearElapsedTime = 0.0f;
+	bool						m_bLevel1Failed = false;
+	float						m_fLevel1FailedElapsedTime = 0.0f;
 };

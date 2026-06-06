@@ -30,6 +30,7 @@ static const int HUD_PLAYER_BACKGROUND = 0;
 static const int HUD_PLAYER_GAUGE = 1;
 static const int HUD_ENEMY_BACKGROUND = 2;
 static const int HUD_ENEMY_GAUGE = 3;
+static const int MAX_ENEMY_PROJECTILES = 48;
 
 CScene::CScene()
 {
@@ -156,12 +157,15 @@ void CScene::ResetLevel1()
 	m_pPlayer->SetPosition(xmf3StartPosition);
 	m_pPlayer->SetVelocity(XMFLOAT3(0.0f, 0.0f, 0.0f));
 	for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i]) m_ppProjectiles[i]->Reset();
+	ResetEnemyProjectiles();
 	m_fProjectileFireCooldown = 0.0f;
 	m_nPlayerHP = m_nPlayerMaxHP;
 	m_nLastHitLevel1TargetIndex = -1;
 	m_fLastHitTargetDisplayElapsedTime = 0.0f;
 	m_bLevel1Cleared = false;
 	m_fLevel1ClearElapsedTime = 0.0f;
+	m_bLevel1Failed = false;
+	m_fLevel1FailedElapsedTime = 0.0f;
 	if (m_ppGameObjects && m_ppGameObjects[LEVEL1_CLEAR_OBJECT]) m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->m_xmf4x4Transform = m_xmf4x4Level1ClearBaseTransform;
 	ResetLevel1Targets();
 
@@ -187,7 +191,7 @@ void CScene::ClampPlayerToTerrain()
 
 void CScene::FirePlayerProjectile()
 {
-	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || !m_pPlayer || (m_fProjectileFireCooldown > 0.0f)) return;
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed || !m_pPlayer || (m_fProjectileFireCooldown > 0.0f)) return;
 
 	CProjectileObject *ppProjectilesToFire[2] = { NULL, NULL };
 	for (int i = 0; i < m_nProjectiles; i++)
@@ -225,6 +229,37 @@ void CScene::FirePlayerProjectile()
 	if (ppProjectilesToFire[1]) ppProjectilesToFire[1]->Fire(xmf3RightMuzzlePosition, xmf3FireDirection);
 	m_fProjectileFireCooldown = PROJECTILE_FIRE_COOLDOWN;
 }
+void CScene::FireLevel1EnemyProjectile(int nTargetIndex)
+{
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed || !m_pPlayer || !m_ppEnemyProjectiles || !m_pLevel1Targets) return;
+	if ((nTargetIndex < 0) || (nTargetIndex >= m_nLevel1Targets)) return;
+
+	SLevel1TargetState& target = m_pLevel1Targets[nTargetIndex];
+	if (!target.m_bActive || target.m_bDestroying) return;
+	if ((target.m_nObjectIndex < 0) || (target.m_nObjectIndex >= m_nGameObjects) || !m_ppGameObjects[target.m_nObjectIndex]) return;
+
+	CProjectileObject *pEnemyProjectile = NULL;
+	for (int i = 0; i < m_nEnemyProjectiles; i++)
+	{
+		if (m_ppEnemyProjectiles[i] && !m_ppEnemyProjectiles[i]->IsActive())
+		{
+			pEnemyProjectile = m_ppEnemyProjectiles[i];
+			break;
+		}
+	}
+	if (!pEnemyProjectile) return;
+
+	XMFLOAT3 xmf3EnemyPosition = m_ppGameObjects[target.m_nObjectIndex]->GetPosition();
+	XMFLOAT3 xmf3PlayerPosition = m_pPlayer->GetPosition();
+	XMFLOAT3 xmf3Direction = Vector3::Subtract(xmf3PlayerPosition, xmf3EnemyPosition);
+	if (Vector3::Length(xmf3Direction) <= 0.001f) return;
+	xmf3Direction = Vector3::Normalize(xmf3Direction);
+
+	const float fEnemyMuzzleForwardOffset = 5.0f;
+	XMFLOAT3 xmf3StartPosition = Vector3::Add(xmf3EnemyPosition, xmf3Direction, fEnemyMuzzleForwardOffset);
+	pEnemyProjectile->m_nDamage = target.m_nProjectileDamage;
+	pEnemyProjectile->Fire(xmf3StartPosition, xmf3Direction);
+}
 void CScene::InitializeLevel1Targets()
 {
 	if (m_pLevel1Targets) delete[] m_pLevel1Targets;
@@ -248,9 +283,11 @@ void CScene::InitializeLevel1Targets()
 	const int pnObjectIndices[4] = { nApache1Index, nApache2Index, nSuperCobraIndex, nMi24Index };
 	const int pnWaves[4] = { 1, 1, 2, 3 };
 	const int pnMaxHPs[4] = { 18, 18, 30, 45 };
-	const float pfCollisionRadii[4] = { 8.0f, 8.0f, 8.0f, 9.0f };
+	const float pfCollisionRadii[4] = { 9.0f, 9.0f, 8.0f, 9.0f };
 	const float pfMoveSpeeds[4] = { 1.1f, 1.0f, 1.35f, 0.65f };
 	const float pfMoveRadii[4] = { 22.0f, 24.0f, 28.0f, 18.0f };
+	const float pfFireIntervals[4] = { 2.10f, 2.20f, 1.50f, 1.15f };
+	const int pnProjectileDamages[4] = { 5, 5, 8, 10 };
 
 	for (int i = 0; i < m_nLevel1Targets; i++)
 	{
@@ -271,6 +308,9 @@ void CScene::InitializeLevel1Targets()
 		m_pLevel1Targets[i].m_fMoveAngle = 0.0f;
 		m_pLevel1Targets[i].m_fMoveSpeed = pfMoveSpeeds[i];
 		m_pLevel1Targets[i].m_fMoveRadius = pfMoveRadii[i];
+		m_pLevel1Targets[i].m_fFireInterval = pfFireIntervals[i];
+		m_pLevel1Targets[i].m_fFireCooldown = pfFireIntervals[i] * (0.55f + 0.12f * (float)i);
+		m_pLevel1Targets[i].m_nProjectileDamage = pnProjectileDamages[i];
 
 		if (m_ppGameObjects[pnObjectIndices[i]])
 		{
@@ -285,6 +325,8 @@ void CScene::ResetLevel1Targets()
 	m_nCurrentLevel1Wave = 1;
 	m_bLevel1Cleared = false;
 	m_fLevel1ClearElapsedTime = 0.0f;
+	m_bLevel1Failed = false;
+	m_fLevel1FailedElapsedTime = 0.0f;
 	if (!m_pLevel1Targets) return;
 
 	for (int i = 0; i < m_nLevel1Targets; i++)
@@ -295,6 +337,7 @@ void CScene::ResetLevel1Targets()
 		target.m_bDestroying = false;
 		target.m_fDestroyElapsedTime = 0.0f;
 		target.m_fMoveAngle = 0.0f;
+		target.m_fFireCooldown = target.m_fFireInterval * (0.55f + 0.12f * (float)i);
 		target.m_xmf3BasePosition = target.m_xmf3StartPosition;
 		if ((target.m_nObjectIndex >= 0) && (target.m_nObjectIndex < m_nGameObjects) && m_ppGameObjects[target.m_nObjectIndex])
 		{
@@ -321,6 +364,7 @@ void CScene::ActivateLevel1Wave(int nWave)
 		{
 			target.m_nHP = target.m_nMaxHP;
 			target.m_fMoveAngle = 0.0f;
+		target.m_fFireCooldown = target.m_fFireInterval * (0.55f + 0.12f * (float)i);
 			target.m_xmf3BasePosition = target.m_xmf3StartPosition;
 			if ((target.m_nObjectIndex >= 0) && (target.m_nObjectIndex < m_nGameObjects) && m_ppGameObjects[target.m_nObjectIndex])
 			{
@@ -393,6 +437,71 @@ void CScene::UpdateLevel1Targets(float fTimeElapsed)
 	}
 }
 
+void CScene::UpdateLevel1EnemyFire(float fTimeElapsed)
+{
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed || !m_pLevel1Targets || !m_pPlayer) return;
+
+	for (int i = 0; i < m_nLevel1Targets; i++)
+	{
+		SLevel1TargetState& target = m_pLevel1Targets[i];
+		if (!target.m_bActive || target.m_bDestroying) continue;
+
+		target.m_fFireCooldown -= fTimeElapsed;
+		if (target.m_fFireCooldown <= 0.0f)
+		{
+			FireLevel1EnemyProjectile(i);
+			target.m_fFireCooldown = target.m_fFireInterval;
+		}
+	}
+}
+
+void CScene::ResetEnemyProjectiles()
+{
+	for (int i = 0; i < m_nEnemyProjectiles; i++) if (m_ppEnemyProjectiles[i]) m_ppEnemyProjectiles[i]->Reset();
+}
+
+void CScene::ApplyDamageToPlayer(int nDamage)
+{
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed) return;
+
+	m_nPlayerHP -= nDamage;
+	if (m_nPlayerHP < 0) m_nPlayerHP = 0;
+
+	char pstrDebug[128];
+	sprintf_s(pstrDebug, "[Level1] Player hit: HP=%d\n", m_nPlayerHP);
+	::OutputDebugStringA(pstrDebug);
+
+	if (m_nPlayerHP <= 0)
+	{
+		m_bLevel1Failed = true;
+		m_fLevel1FailedElapsedTime = 0.0f;
+		ResetEnemyProjectiles();
+		::OutputDebugStringA("[Level1] Mission Failed\n");
+	}
+}
+
+void CScene::CheckEnemyProjectilePlayerCollisions()
+{
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed || !m_pPlayer || !m_ppEnemyProjectiles) return;
+
+	const float fPlayerHitRadius = 7.0f;
+	XMFLOAT3 xmf3PlayerPosition = m_pPlayer->GetPosition();
+	for (int i = 0; i < m_nEnemyProjectiles; i++)
+	{
+		CProjectileObject *pEnemyProjectile = m_ppEnemyProjectiles[i];
+		if (!pEnemyProjectile || !pEnemyProjectile->IsActive()) continue;
+
+		XMFLOAT3 xmf3Difference = Vector3::Subtract(pEnemyProjectile->GetPosition(), xmf3PlayerPosition);
+		float fDistance = Vector3::Length(xmf3Difference);
+		float fHitDistance = pEnemyProjectile->GetCollisionRadius() + fPlayerHitRadius;
+		if (fDistance <= fHitDistance)
+		{
+			int nDamage = pEnemyProjectile->GetDamage();
+			pEnemyProjectile->Reset();
+			ApplyDamageToPlayer(nDamage);
+		}
+	}
+}
 void CScene::UpdateLevel1ClearText()
 {
 	if (!m_bLevel1Cleared) return;
@@ -410,7 +519,7 @@ void CScene::UpdateLevel1ClearText()
 
 void CScene::CheckProjectileTargetCollisions()
 {
-	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || !m_ppProjectiles || !m_pLevel1Targets) return;
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed || !m_ppProjectiles || !m_pLevel1Targets) return;
 
 	for (int i = 0; i < m_nProjectiles; i++)
 	{
@@ -498,6 +607,8 @@ void CScene::AdvanceLevel1WaveIfNeeded()
 	{
 		m_bLevel1Cleared = true;
 		m_fLevel1ClearElapsedTime = 0.0f;
+	m_bLevel1Failed = false;
+	m_fLevel1FailedElapsedTime = 0.0f;
 		for (int i = 0; i < m_nLevel1Targets; i++) m_pLevel1Targets[i].m_bActive = false;
 		::OutputDebugStringA("[Level1] Mission Clear\n");
 	}
@@ -525,7 +636,7 @@ void CScene::UpdateLevel1HudBars()
 	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || !m_ppHudBars || (m_nHudBars < HUD_BAR_COUNT)) return;
 	if (!m_ppHudBars[HUD_PLAYER_BACKGROUND] || !m_ppHudBars[HUD_PLAYER_GAUGE] || !m_ppHudBars[HUD_ENEMY_BACKGROUND] || !m_ppHudBars[HUD_ENEMY_GAUGE]) return;
 
-	const float fHudFullWidth = 150.0f;
+	const float fHudFullWidth = 225.0f;
 	const float fHudHeight = 3.5f;
 	const float fHudDepth = 0.5f;
 	const float fPlayerHudY = 48.0f;
@@ -736,6 +847,14 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 		m_ppProjectiles[i] = new CProjectileObject(pd3dDevice, pd3dCommandList);
 		m_ppProjectiles[i]->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnProjectileMaterials);
 	}
+	m_nEnemyProjectiles = MAX_ENEMY_PROJECTILES;
+	m_ppEnemyProjectiles = new CProjectileObject*[m_nEnemyProjectiles];
+	int pnEnemyProjectileMaterials[1] = { 1 };
+	for (int i = 0; i < m_nEnemyProjectiles; i++)
+	{
+		m_ppEnemyProjectiles[i] = new CProjectileObject(pd3dDevice, pd3dCommandList, 0.6f, 0.6f, 5.0f, XMFLOAT4(0.9f, 0.20f, 0.08f, 1.0f), XMFLOAT4(1.0f, 0.18f, 0.04f, 1.0f), XMFLOAT4(0.65f, 0.05f, 0.01f, 1.0f), XMFLOAT4(0.6f, 0.10f, 0.02f, 12.0f), 500.0f, 3.0f, 1.8f, 8);
+		m_ppEnemyProjectiles[i]->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnEnemyProjectileMaterials);
+	}
 
 	m_nHudBars = HUD_BAR_COUNT;
 	m_ppHudBars = new CHudBarObject*[m_nHudBars];
@@ -785,6 +904,13 @@ void CScene::ReleaseObjects()
 		delete[] m_ppProjectiles;
 		m_ppProjectiles = NULL;
 		m_nProjectiles = 0;
+	}
+	if (m_ppEnemyProjectiles)
+	{
+		for (int i = 0; i < m_nEnemyProjectiles; i++) if (m_ppEnemyProjectiles[i]) m_ppEnemyProjectiles[i]->Release();
+		delete[] m_ppEnemyProjectiles;
+		m_ppEnemyProjectiles = NULL;
+		m_nEnemyProjectiles = 0;
 	}
 
 	if (m_ppHudBars)
@@ -888,6 +1014,7 @@ void CScene::ReleaseShaderVariables()
 
 	for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->ReleaseShaderVariables();
 	for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i]) m_ppProjectiles[i]->ReleaseShaderVariables();
+	for (int i = 0; i < m_nEnemyProjectiles; i++) if (m_ppEnemyProjectiles[i]) m_ppEnemyProjectiles[i]->ReleaseShaderVariables();
 	for (int i = 0; i < m_nHudBars; i++) if (m_ppHudBars[i]) m_ppHudBars[i]->ReleaseShaderVariables();
 }
 
@@ -895,6 +1022,7 @@ void CScene::ReleaseUploadBuffers()
 {
 	for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->ReleaseUploadBuffers();
 	for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i]) m_ppProjectiles[i]->ReleaseUploadBuffers();
+	for (int i = 0; i < m_nEnemyProjectiles; i++) if (m_ppEnemyProjectiles[i]) m_ppEnemyProjectiles[i]->ReleaseUploadBuffers();
 	for (int i = 0; i < m_nHudBars; i++) if (m_ppHudBars[i]) m_ppHudBars[i]->ReleaseUploadBuffers();
 }
 
@@ -961,7 +1089,7 @@ bool CScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wPar
 }
 bool CScene::ProcessInput(UCHAR *pKeysBuffer)
 {
-	if ((m_nSceneMode == GAME_SCENE_LEVEL1) && (pKeysBuffer[VK_SPACE] & 0xF0)) FirePlayerProjectile();
+	if ((m_nSceneMode == GAME_SCENE_LEVEL1) && !m_bLevel1Cleared && !m_bLevel1Failed && (pKeysBuffer[VK_SPACE] & 0xF0)) FirePlayerProjectile();
 	return(m_nSceneMode < GAME_SCENE_TUTORIAL);
 }
 
@@ -1042,12 +1170,21 @@ void CScene::AnimateObjects(float fTimeElapsed)
 			m_fLevel1ClearElapsedTime += fTimeElapsed;
 			UpdateLevel1ClearText();
 		}
-		for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i] && m_ppProjectiles[i]->IsActive()) m_ppProjectiles[i]->Animate(fTimeElapsed, NULL);
-		UpdateLevel1Targets(fTimeElapsed);
-		CheckProjectileTargetCollisions();
-		AdvanceLevel1WaveIfNeeded();
+		else if (m_bLevel1Failed)
+		{
+			m_fLevel1FailedElapsedTime += fTimeElapsed;
+		}
+		else
+		{
+			for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i] && m_ppProjectiles[i]->IsActive()) m_ppProjectiles[i]->Animate(fTimeElapsed, NULL);
+			for (int i = 0; i < m_nEnemyProjectiles; i++) if (m_ppEnemyProjectiles[i] && m_ppEnemyProjectiles[i]->IsActive()) m_ppEnemyProjectiles[i]->Animate(fTimeElapsed, NULL);
+			UpdateLevel1Targets(fTimeElapsed);
+			UpdateLevel1EnemyFire(fTimeElapsed);
+			CheckProjectileTargetCollisions();
+			CheckEnemyProjectilePlayerCollisions();
+			AdvanceLevel1WaveIfNeeded();
+		}
 	}
-
 	ClampPlayerToTerrain();
 
 	if (m_pLights && m_pPlayer)
@@ -1101,5 +1238,14 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 				m_ppProjectiles[i]->Render(pd3dCommandList, pCamera, m_ppProjectiles[i]->m_ppd3dcbInstancingGameObjects, m_ppProjectiles[i]->m_ppcbMappedInstancingGameObjects);
 			}
 		}
-	}
-}
+		if (!m_bLevel1Cleared && !m_bLevel1Failed)
+		{
+			for (int i = 0; i < m_nEnemyProjectiles; i++)
+			{
+				if (m_ppEnemyProjectiles[i] && m_ppEnemyProjectiles[i]->IsActive())
+				{
+					m_ppEnemyProjectiles[i]->Render(pd3dCommandList, pCamera, m_ppEnemyProjectiles[i]->m_ppd3dcbInstancingGameObjects, m_ppEnemyProjectiles[i]->m_ppcbMappedInstancingGameObjects);
+				}
+			}
+		}
+	}}

@@ -104,8 +104,18 @@ void CProjectileMesh::Render(ID3D12GraphicsCommandList *pd3dCommandList, int nSu
 }
 
 CProjectileObject::CProjectileObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList)
+	: CProjectileObject(pd3dDevice, pd3dCommandList, 0.7f, 0.7f, 6.0f,
+		XMFLOAT4(0.9f, 0.75f, 0.25f, 1.0f), XMFLOAT4(1.0f, 0.85f, 0.15f, 1.0f),
+		XMFLOAT4(0.35f, 0.25f, 0.03f, 1.0f), XMFLOAT4(0.6f, 0.45f, 0.1f, 16.0f),
+		700.0f, 2.0f, 2.0f, 1)
 {
-	SetMesh(new CProjectileMesh(pd3dDevice, pd3dCommandList));
+}
+
+CProjectileObject::CProjectileObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, float fWidth, float fHeight, float fLength,
+	const XMFLOAT4& xmf4Ambient, const XMFLOAT4& xmf4Diffuse, const XMFLOAT4& xmf4Emissive, const XMFLOAT4& xmf4Specular,
+	float fSpeed, float fLifeTime, float fCollisionRadius, int nDamage)
+{
+	SetMesh(new CProjectileMesh(pd3dDevice, pd3dCommandList, fWidth, fHeight, fLength));
 
 	m_nMaterials = 1;
 	m_ppMaterials = new CMaterial*[m_nMaterials];
@@ -113,11 +123,16 @@ CProjectileObject::CProjectileObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCom
 	m_ppMaterials[0]->SetIlluminatedShader();
 
 	CMaterialColors *pMaterialColors = new CMaterialColors();
-	pMaterialColors->m_xmf4Ambient = XMFLOAT4(0.9f, 0.75f, 0.25f, 1.0f);
-	pMaterialColors->m_xmf4Diffuse = XMFLOAT4(1.0f, 0.85f, 0.15f, 1.0f);
-	pMaterialColors->m_xmf4Emissive = XMFLOAT4(0.35f, 0.25f, 0.03f, 1.0f);
-	pMaterialColors->m_xmf4Specular = XMFLOAT4(0.6f, 0.45f, 0.1f, 16.0f);
+	pMaterialColors->m_xmf4Ambient = xmf4Ambient;
+	pMaterialColors->m_xmf4Diffuse = xmf4Diffuse;
+	pMaterialColors->m_xmf4Emissive = xmf4Emissive;
+	pMaterialColors->m_xmf4Specular = xmf4Specular;
 	m_ppMaterials[0]->SetMaterialColors(pMaterialColors);
+
+	m_fSpeed = fSpeed;
+	m_fLifeTime = fLifeTime;
+	m_fCollisionRadius = fCollisionRadius;
+	m_nDamage = nDamage;
 
 	Reset();
 }

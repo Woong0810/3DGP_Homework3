@@ -35,12 +35,16 @@ class CProjectileObject : public CGameObject
 {
 public:
 	CProjectileObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
+	CProjectileObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, float fWidth, float fHeight, float fLength,
+		const XMFLOAT4& xmf4Ambient, const XMFLOAT4& xmf4Diffuse, const XMFLOAT4& xmf4Emissive, const XMFLOAT4& xmf4Specular,
+		float fSpeed, float fLifeTime, float fCollisionRadius, int nDamage);
 	virtual ~CProjectileObject() { }
 
 	void Fire(const XMFLOAT3& position, const XMFLOAT3& direction);
 	void Reset();
 	bool IsActive() const { return(m_bActive); }
 	float GetCollisionRadius() const { return(m_fCollisionRadius); }
+	int GetDamage() const { return(m_nDamage); }
 
 	virtual void Animate(float fTimeElapsed, XMFLOAT4X4 *pxmf4x4Parent = NULL);
 
@@ -50,4 +54,5 @@ public:
 	float							m_fLifeTime = 2.0f;
 	float							m_fElapsedLifeTime = 0.0f;
 	float							m_fCollisionRadius = 2.0f;
+	int								m_nDamage = 1;
 };
