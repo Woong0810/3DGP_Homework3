@@ -21,7 +21,7 @@ static const int UI_END_OBJECT = 10;
 static const int UI_MENU_START_FIRST_OBJECT = UI_TUTORIAL_START_OBJECT;
 static const int UI_MENU_START_COUNT = 4;
 static const int WORLD_OBJECT_START = 11;
-static const int WORLD_OBJECT_COUNT = 9;
+static const int WORLD_OBJECT_COUNT = 5;
 static const int TOTAL_SCENE_OBJECTS = WORLD_OBJECT_START + WORLD_OBJECT_COUNT;
 
 CScene::CScene()
@@ -142,6 +142,7 @@ void CScene::ResetLevel1()
 	m_pPlayer->SetVelocity(XMFLOAT3(0.0f, 0.0f, 0.0f));
 	for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i]) m_ppProjectiles[i]->Reset();
 	m_fProjectileFireCooldown = 0.0f;
+	ResetLevel1Targets();
 
 	char pstrDebug[128];
 	sprintf_s(pstrDebug, "Level-1 Reset Player Position: %.2f, %.2f, %.2f\n", xmf3StartPosition.x, xmf3StartPosition.y, xmf3StartPosition.z);
@@ -182,9 +183,9 @@ void CScene::FirePlayerProjectile()
 	}
 	if (!ppProjectilesToFire[0]) return;
 
-	const float fMuzzleRightOffset = 9.0f;
-	const float fMuzzleLookOffset = 20.0f;
-	const float fMuzzleUpOffset = -2.5f;
+	const float fMuzzleRightOffset = 1.1f;
+	const float fMuzzleLookOffset = 3.0f;
+	const float fMuzzleUpOffset = -0.35f;
 	XMFLOAT3 xmf3Look = Vector3::Normalize(m_pPlayer->GetLookVector());
 	XMFLOAT3 xmf3Right = Vector3::Normalize(m_pPlayer->GetRightVector());
 	XMFLOAT3 xmf3Up = Vector3::Normalize(m_pPlayer->GetUpVector());
@@ -201,10 +202,143 @@ void CScene::FirePlayerProjectile()
 	if (ppProjectilesToFire[1]) ppProjectilesToFire[1]->Fire(xmf3RightMuzzlePosition, xmf3Look);
 	m_fProjectileFireCooldown = PROJECTILE_FIRE_COOLDOWN;
 }
+void CScene::InitializeLevel1Targets()
+{
+	if (m_pLevel1Targets) delete[] m_pLevel1Targets;
+
+	m_nLevel1Targets = 4;
+	m_pLevel1Targets = new SLevel1TargetState[m_nLevel1Targets];
+	m_nCurrentLevel1Wave = 1;
+
+	const int nApache1Index = WORLD_OBJECT_START + 0;
+	const int nApache2Index = WORLD_OBJECT_START + 1;
+	const int nSuperCobraIndex = WORLD_OBJECT_START + 2;
+	const int nMi24Index = WORLD_OBJECT_START + 3;
+
+	const XMFLOAT3 xmf3StartPositions[4] =
+	{
+		XMFLOAT3(-120.0f, 80.0f, 200.0f),
+		XMFLOAT3(+120.0f, 80.0f, 220.0f),
+		XMFLOAT3(0.0f, 95.0f, 430.0f),
+		XMFLOAT3(0.0f, 110.0f, 650.0f)
+	};
+	const int pnObjectIndices[4] = { nApache1Index, nApache2Index, nSuperCobraIndex, nMi24Index };
+	const int pnWaves[4] = { 1, 1, 2, 3 };
+	const int pnMaxHPs[4] = { 3, 3, 5, 7 };
+	const float pfCollisionRadii[4] = { 7.0f, 7.0f, 8.0f, 9.0f };
+	const float pfMoveSpeeds[4] = { 1.1f, 1.0f, 1.35f, 0.65f };
+	const float pfMoveRadii[4] = { 22.0f, 24.0f, 28.0f, 18.0f };
+
+	for (int i = 0; i < m_nLevel1Targets; i++)
+	{
+		XMFLOAT3 xmf3StartPosition = xmf3StartPositions[i];
+		float fTerrainY = (m_pTerrain) ? m_pTerrain->GetHeight(xmf3StartPosition.x, xmf3StartPosition.z) : 0.0f;
+		xmf3StartPosition.y += fTerrainY;
+
+		m_pLevel1Targets[i].m_nObjectIndex = pnObjectIndices[i];
+		m_pLevel1Targets[i].m_nWave = pnWaves[i];
+		m_pLevel1Targets[i].m_nMaxHP = pnMaxHPs[i];
+		m_pLevel1Targets[i].m_nHP = pnMaxHPs[i];
+		m_pLevel1Targets[i].m_bActive = false;
+		m_pLevel1Targets[i].m_fCollisionRadius = pfCollisionRadii[i];
+		m_pLevel1Targets[i].m_xmf3StartPosition = xmf3StartPosition;
+		m_pLevel1Targets[i].m_xmf3BasePosition = xmf3StartPosition;
+		m_pLevel1Targets[i].m_fMoveAngle = 0.0f;
+		m_pLevel1Targets[i].m_fMoveSpeed = pfMoveSpeeds[i];
+		m_pLevel1Targets[i].m_fMoveRadius = pfMoveRadii[i];
+
+		if (m_ppGameObjects[pnObjectIndices[i]]) m_ppGameObjects[pnObjectIndices[i]]->SetPosition(xmf3StartPosition);
+	}
+}
+
+void CScene::ResetLevel1Targets()
+{
+	m_nCurrentLevel1Wave = 1;
+	if (!m_pLevel1Targets) return;
+
+	for (int i = 0; i < m_nLevel1Targets; i++)
+	{
+		m_pLevel1Targets[i].m_nHP = m_pLevel1Targets[i].m_nMaxHP;
+		m_pLevel1Targets[i].m_bActive = false;
+		m_pLevel1Targets[i].m_fMoveAngle = 0.0f;
+		m_pLevel1Targets[i].m_xmf3BasePosition = m_pLevel1Targets[i].m_xmf3StartPosition;
+		if (m_ppGameObjects[m_pLevel1Targets[i].m_nObjectIndex]) m_ppGameObjects[m_pLevel1Targets[i].m_nObjectIndex]->SetPosition(m_pLevel1Targets[i].m_xmf3StartPosition);
+	}
+	ActivateLevel1Wave(1);
+}
+
+void CScene::ActivateLevel1Wave(int nWave)
+{
+	if (!m_pLevel1Targets) return;
+
+	m_nCurrentLevel1Wave = nWave;
+	for (int i = 0; i < m_nLevel1Targets; i++)
+	{
+		bool bWaveTarget = (m_pLevel1Targets[i].m_nWave == nWave);
+		m_pLevel1Targets[i].m_bActive = bWaveTarget;
+		if (bWaveTarget)
+		{
+			m_pLevel1Targets[i].m_nHP = m_pLevel1Targets[i].m_nMaxHP;
+			m_pLevel1Targets[i].m_fMoveAngle = 0.0f;
+			m_pLevel1Targets[i].m_xmf3BasePosition = m_pLevel1Targets[i].m_xmf3StartPosition;
+			if (m_ppGameObjects[m_pLevel1Targets[i].m_nObjectIndex]) m_ppGameObjects[m_pLevel1Targets[i].m_nObjectIndex]->SetPosition(m_pLevel1Targets[i].m_xmf3StartPosition);
+		}
+	}
+}
+
+void CScene::UpdateLevel1Targets(float fTimeElapsed)
+{
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || !m_pLevel1Targets) return;
+
+	for (int i = 0; i < m_nLevel1Targets; i++)
+	{
+		SLevel1TargetState& target = m_pLevel1Targets[i];
+		if (!target.m_bActive) continue;
+
+		target.m_fMoveAngle += target.m_fMoveSpeed * fTimeElapsed;
+		XMFLOAT3 xmf3Position = target.m_xmf3BasePosition;
+		if (target.m_nWave == 1)
+		{
+			xmf3Position.x = target.m_xmf3BasePosition.x + sinf(target.m_fMoveAngle) * target.m_fMoveRadius;
+		}
+		else if (target.m_nWave == 2)
+		{
+			xmf3Position.x = target.m_xmf3BasePosition.x + sinf(target.m_fMoveAngle) * target.m_fMoveRadius;
+			xmf3Position.z = target.m_xmf3BasePosition.z + cosf(target.m_fMoveAngle * 0.7f) * (target.m_fMoveRadius * 0.35f);
+		}
+		else
+		{
+			xmf3Position.x = target.m_xmf3BasePosition.x + sinf(target.m_fMoveAngle) * target.m_fMoveRadius;
+			xmf3Position.z = target.m_xmf3BasePosition.z + cosf(target.m_fMoveAngle) * target.m_fMoveRadius;
+		}
+
+		if (m_ppGameObjects[target.m_nObjectIndex])
+		{
+			m_ppGameObjects[target.m_nObjectIndex]->SetPosition(xmf3Position);
+			m_ppGameObjects[target.m_nObjectIndex]->Rotate(0.0f, target.m_fMoveSpeed * fTimeElapsed * 20.0f, 0.0f);
+		}
+	}
+}
+
+bool CScene::IsActiveLevel1TargetObject(int nObjectIndex) const
+{
+	if (!m_pLevel1Targets) return(false);
+	for (int i = 0; i < m_nLevel1Targets; i++)
+	{
+		if (m_pLevel1Targets[i].m_nObjectIndex == nObjectIndex) return(m_pLevel1Targets[i].m_bActive);
+	}
+	return(false);
+}
 bool CScene::IsVisibleObject(int nObject) const
 {
 	if (m_nSceneMode == GAME_SCENE_START) return((nObject == UI_TITLE_OBJECT) || (nObject == UI_NAME_OBJECT));
 	if (m_nSceneMode == GAME_SCENE_MENU) return((nObject >= UI_TUTORIAL_OBJECT) && (nObject <= UI_END_OBJECT));
+	if (m_nSceneMode == GAME_SCENE_LEVEL1)
+	{
+		if (nObject == WORLD_OBJECT_START + 4) return(true);
+		if ((nObject >= WORLD_OBJECT_START) && (nObject < WORLD_OBJECT_START + 4)) return(IsActiveLevel1TargetObject(nObject));
+		return(false);
+	}
 	return(nObject >= WORLD_OBJECT_START);
 }
 
@@ -275,35 +409,24 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	int pnMaterialsInHierarchy[64];
 	CGameObject *pApacheModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Apache.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
 
+	CGameObject *pApacheModel1 = pApacheModel;
 	CApacheObject* pApacheObject = new CApacheObject();
 	pApacheObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
-	pApacheObject->SetChild(pApacheModel, true);
+	pApacheObject->SetChild(pApacheModel1, true);
 	pApacheObject->OnInitialize();
-	pApacheObject->SetPosition(+130.0f, 0.0f, 160.0f);
-	pApacheObject->SetScale(1.5f, 1.5f, 1.5f);
+	pApacheObject->SetScale(1.0f, 1.0f, 1.0f);
 	pApacheObject->Rotate(0.0f, 90.0f, 0.0f);
 	m_ppGameObjects[WORLD_OBJECT_START + 0] = pApacheObject;
 
+	nMeshesInHierarchy = 0;
+	CGameObject *pApacheModel2 = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Apache.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
 	pApacheObject = new CApacheObject();
 	pApacheObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
-	pApacheObject->SetChild(pApacheModel, true);
+	pApacheObject->SetChild(pApacheModel2, true);
 	pApacheObject->OnInitialize();
-	pApacheObject->SetPosition(-75.0f, 0.0f, 80.0f);
-	pApacheObject->SetScale(1.5f, 1.5f, 1.5f);
+	pApacheObject->SetScale(1.0f, 1.0f, 1.0f);
 	pApacheObject->Rotate(0.0f, -90.0f, 0.0f);
 	m_ppGameObjects[WORLD_OBJECT_START + 1] = pApacheObject;
-
-	nMeshesInHierarchy = 0;
-	CGameObject *pGunshipModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Gunship.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
-
-	CGunshipObject* pGunshipObject = new CGunshipObject();
-	pGunshipObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
-	pGunshipObject->SetChild(pGunshipModel, true);
-	pGunshipObject->OnInitialize();
-	pGunshipObject->SetPosition(135.0f, 40.0f, 220.0f);
-	pGunshipObject->SetScale(8.5f, 8.5f, 8.5f);
-	pGunshipObject->Rotate(0.0f, -90.0f, 0.0f);
-	m_ppGameObjects[WORLD_OBJECT_START + 2] = pGunshipObject;
 
 	nMeshesInHierarchy = 0;
 	CGameObject *pSuperCobraModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/SuperCobra.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -312,63 +435,27 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pSuperCobraObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
 	pSuperCobraObject->SetChild(pSuperCobraModel, true);
 	pSuperCobraObject->OnInitialize();
-	pSuperCobraObject->SetPosition(95.0f, 50.0f, 50.0f);
-	pSuperCobraObject->SetScale(4.5f, 4.5f, 4.5f);
+	pSuperCobraObject->SetScale(1.0f, 1.0f, 1.0f);
 	pSuperCobraObject->Rotate(0.0f, -90.0f, 0.0f);
-	m_ppGameObjects[WORLD_OBJECT_START + 3] = pSuperCobraObject;
+	m_ppGameObjects[WORLD_OBJECT_START + 2] = pSuperCobraObject;
 
-	nMeshesInHierarchy = 0; 
+	nMeshesInHierarchy = 0;
 	CGameObject *pMi24Model = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Mi24.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
 
 	CMi24Object* pMi24Object = new CMi24Object();
 	pMi24Object->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
 	pMi24Object->SetChild(pMi24Model, true);
 	pMi24Object->OnInitialize();
-	pMi24Object->SetPosition(-95.0f, 50.0f, 50.0f);
-	pMi24Object->SetScale(4.5f, 4.5f, 4.5f);
+	pMi24Object->SetScale(1.0f, 1.0f, 1.0f);
 	pMi24Object->Rotate(0.0f, -90.0f, 0.0f);
-	m_ppGameObjects[WORLD_OBJECT_START + 4] = pMi24Object;
-
-	nMeshesInHierarchy = 0;
-	CGameObject* pHummerModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Hummer.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
-
-	CHummerObject* pHummerObject = new CHummerObject();
-	pHummerObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
-	pHummerObject->SetChild(pHummerModel);
-	pHummerObject->OnInitialize();
-	pHummerObject->SetPosition(260.0f, 0.0f, 150.0f);
-	pHummerObject->SetScale(18.0f, 18.0f, 18.0f);
-	pHummerObject->Rotate(0.0f, -90.0f, 0.0f);
-	m_ppGameObjects[WORLD_OBJECT_START + 5] = pHummerObject;
-
-	nMeshesInHierarchy = 0;
-	CGameObject* pAbramsModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/M26.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
-
-	CM26Object* pTankObject = new CM26Object();
-	pTankObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
-	pTankObject->SetChild(pAbramsModel);
-	pTankObject->OnInitialize();
-	pTankObject->SetPosition(260.0f, 0.0f, 150.0f);
-	pTankObject->SetScale(18.0f, 18.0f, 18.0f);
-	pTankObject->Rotate(0.0f, -90.0f, 0.0f);
-	m_ppGameObjects[WORLD_OBJECT_START + 6] = pTankObject;
-
-	nMeshesInHierarchy = 0;
-	CGameObject* pEllenModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Ellen.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
-
-	CGameObject* pEllenObject = new CGameObject();
-	pEllenObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
-	pEllenObject->SetChild(pEllenModel);
-	pEllenObject->OnInitialize();
-	pEllenObject->SetPosition(70.0f, -15.0f, 10.0f);
-	pEllenObject->SetScale(28.0f, 28.0f, 28.0f);
-	pEllenObject->Rotate(0.0f, 180.0f, 0.0f);
-	m_ppGameObjects[WORLD_OBJECT_START + 7] = pEllenObject;
+	m_ppGameObjects[WORLD_OBJECT_START + 3] = pMi24Object;
 
 	int pnTerrainMaterials[1] = { 1 };
 	m_pTerrain = new CTerrainObject(pd3dDevice, pd3dCommandList, "HeightMap/Level_1_terrain.raw");
 	m_pTerrain->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnTerrainMaterials);
-	m_ppGameObjects[WORLD_OBJECT_START + 8] = m_pTerrain;
+	m_ppGameObjects[WORLD_OBJECT_START + 4] = m_pTerrain;
+
+	InitializeLevel1Targets();
 
 	m_nProjectiles = MAX_PROJECTILES;
 	m_ppProjectiles = new CProjectileObject*[m_nProjectiles];
@@ -401,6 +488,14 @@ void CScene::ReleaseObjects()
 		delete[] m_ppProjectiles;
 		m_ppProjectiles = NULL;
 		m_nProjectiles = 0;
+	}
+
+	if (m_pLevel1Targets)
+	{
+		delete[] m_pLevel1Targets;
+		m_pLevel1Targets = NULL;
+		m_nLevel1Targets = 0;
+		m_nCurrentLevel1Wave = 1;
 	}
 
 	if (m_pLights) delete[] m_pLights;
@@ -635,6 +730,7 @@ void CScene::AnimateObjects(float fTimeElapsed)
 	{
 		if (m_fProjectileFireCooldown > 0.0f) m_fProjectileFireCooldown -= fTimeElapsed;
 		for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i] && m_ppProjectiles[i]->IsActive()) m_ppProjectiles[i]->Animate(fTimeElapsed, NULL);
+		UpdateLevel1Targets(fTimeElapsed);
 	}
 
 	ClampPlayerToTerrain();

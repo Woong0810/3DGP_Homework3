@@ -40,6 +40,21 @@ struct LIGHTS
 class CTerrainObject;
 class CProjectileObject;
 
+struct SLevel1TargetState
+{
+	int							m_nObjectIndex = -1;
+	int							m_nWave = 0;
+	int							m_nMaxHP = 0;
+	int							m_nHP = 0;
+	bool						m_bActive = false;
+	float						m_fCollisionRadius = 0.0f;
+	XMFLOAT3					m_xmf3StartPosition = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	XMFLOAT3					m_xmf3BasePosition = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	float						m_fMoveAngle = 0.0f;
+	float						m_fMoveSpeed = 0.0f;
+	float						m_fMoveRadius = 0.0f;
+};
+
 enum GAME_SCENE_MODE
 {
 	GAME_SCENE_START = 0,
@@ -102,6 +117,11 @@ private:
 	void ResetLevel1();
 	void ClampPlayerToTerrain();
 	void FirePlayerProjectile();
+	void InitializeLevel1Targets();
+	void ResetLevel1Targets();
+	void ActivateLevel1Wave(int nWave);
+	void UpdateLevel1Targets(float fTimeElapsed);
+	bool IsActiveLevel1TargetObject(int nObjectIndex) const;
 	bool IsVisibleObject(int nObject) const;
 	bool IsStartTitleHover(int x, int y) const;
 	bool IsStartNameHover(int x, int y) const;
@@ -127,4 +147,7 @@ private:
 	CProjectileObject			**m_ppProjectiles = NULL;
 	int							m_nProjectiles = 0;
 	float						m_fProjectileFireCooldown = 0.0f;
+	SLevel1TargetState			*m_pLevel1Targets = NULL;
+	int							m_nLevel1Targets = 0;
+	int							m_nCurrentLevel1Wave = 1;
 };
