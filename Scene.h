@@ -47,9 +47,12 @@ struct SLevel1TargetState
 	int							m_nMaxHP = 0;
 	int							m_nHP = 0;
 	bool						m_bActive = false;
+	bool						m_bDestroying = false;
+	float						m_fDestroyElapsedTime = 0.0f;
 	float						m_fCollisionRadius = 0.0f;
 	XMFLOAT3					m_xmf3StartPosition = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	XMFLOAT3					m_xmf3BasePosition = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	XMFLOAT4X4					m_xmf4x4StartTransform;
 	float						m_fMoveAngle = 0.0f;
 	float						m_fMoveSpeed = 0.0f;
 	float						m_fMoveRadius = 0.0f;
@@ -121,6 +124,7 @@ private:
 	void ResetLevel1Targets();
 	void ActivateLevel1Wave(int nWave);
 	void UpdateLevel1Targets(float fTimeElapsed);
+	void UpdateLevel1ClearText(float fTimeElapsed);
 	void CheckProjectileTargetCollisions();
 	void ApplyDamageToLevel1Target(int nTargetIndex, int nDamage);
 	bool IsCurrentLevel1WaveCleared() const;

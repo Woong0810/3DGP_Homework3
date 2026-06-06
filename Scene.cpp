@@ -22,7 +22,8 @@ static const int UI_MENU_START_FIRST_OBJECT = UI_TUTORIAL_START_OBJECT;
 static const int UI_MENU_START_COUNT = 4;
 static const int WORLD_OBJECT_START = 11;
 static const int WORLD_OBJECT_COUNT = 5;
-static const int TOTAL_SCENE_OBJECTS = WORLD_OBJECT_START + WORLD_OBJECT_COUNT;
+static const int LEVEL1_CLEAR_OBJECT = WORLD_OBJECT_START + WORLD_OBJECT_COUNT;
+static const int TOTAL_SCENE_OBJECTS = LEVEL1_CLEAR_OBJECT + 1;
 
 CScene::CScene()
 {
@@ -187,11 +188,11 @@ void CScene::FirePlayerProjectile()
 
 	const float fMuzzleRightOffset = 1.45f;
 	const float fMuzzleLookOffset = 3.0f;
-	const float fMuzzleUpOffset = -0.65f;
+	const float fMuzzleUpOffset = -0.75f;
 	XMFLOAT3 xmf3Look = Vector3::Normalize(m_pPlayer->GetLookVector());
 	XMFLOAT3 xmf3Right = Vector3::Normalize(m_pPlayer->GetRightVector());
 	XMFLOAT3 xmf3Up = Vector3::Normalize(m_pPlayer->GetUpVector());
-	const float fProjectileDownAimOffset = -0.08f;
+	const float fProjectileDownAimOffset = -0.14f;
 	XMFLOAT3 xmf3FireDirection = Vector3::Normalize(Vector3::Add(xmf3Look, xmf3Up, fProjectileDownAimOffset));
 	XMFLOAT3 xmf3BasePosition = m_pPlayer->GetPosition();
 
@@ -244,6 +245,8 @@ void CScene::InitializeLevel1Targets()
 		m_pLevel1Targets[i].m_nMaxHP = pnMaxHPs[i];
 		m_pLevel1Targets[i].m_nHP = pnMaxHPs[i];
 		m_pLevel1Targets[i].m_bActive = false;
+		m_pLevel1Targets[i].m_bDestroying = false;
+		m_pLevel1Targets[i].m_fDestroyElapsedTime = 0.0f;
 		m_pLevel1Targets[i].m_fCollisionRadius = pfCollisionRadii[i];
 		m_pLevel1Targets[i].m_xmf3StartPosition = xmf3StartPosition;
 		m_pLevel1Targets[i].m_xmf3BasePosition = xmf3StartPosition;
@@ -251,22 +254,35 @@ void CScene::InitializeLevel1Targets()
 		m_pLevel1Targets[i].m_fMoveSpeed = pfMoveSpeeds[i];
 		m_pLevel1Targets[i].m_fMoveRadius = pfMoveRadii[i];
 
-		if (m_ppGameObjects[pnObjectIndices[i]]) m_ppGameObjects[pnObjectIndices[i]]->SetPosition(xmf3StartPosition);
+		if (m_ppGameObjects[pnObjectIndices[i]])
+		{
+			m_ppGameObjects[pnObjectIndices[i]]->SetPosition(xmf3StartPosition);
+			m_pLevel1Targets[i].m_xmf4x4StartTransform = m_ppGameObjects[pnObjectIndices[i]]->m_xmf4x4Transform;
+		}
 	}
 }
 
 void CScene::ResetLevel1Targets()
 {
 	m_nCurrentLevel1Wave = 1;
+	m_bLevel1Cleared = false;
+	m_fLevel1ClearElapsedTime = 0.0f;
 	if (!m_pLevel1Targets) return;
 
 	for (int i = 0; i < m_nLevel1Targets; i++)
 	{
-		m_pLevel1Targets[i].m_nHP = m_pLevel1Targets[i].m_nMaxHP;
-		m_pLevel1Targets[i].m_bActive = false;
-		m_pLevel1Targets[i].m_fMoveAngle = 0.0f;
-		m_pLevel1Targets[i].m_xmf3BasePosition = m_pLevel1Targets[i].m_xmf3StartPosition;
-		if (m_ppGameObjects[m_pLevel1Targets[i].m_nObjectIndex]) m_ppGameObjects[m_pLevel1Targets[i].m_nObjectIndex]->SetPosition(m_pLevel1Targets[i].m_xmf3StartPosition);
+		SLevel1TargetState& target = m_pLevel1Targets[i];
+		target.m_nHP = target.m_nMaxHP;
+		target.m_bActive = false;
+		target.m_bDestroying = false;
+		target.m_fDestroyElapsedTime = 0.0f;
+		target.m_fMoveAngle = 0.0f;
+		target.m_xmf3BasePosition = target.m_xmf3StartPosition;
+		if ((target.m_nObjectIndex >= 0) && (target.m_nObjectIndex < m_nGameObjects) && m_ppGameObjects[target.m_nObjectIndex])
+		{
+			m_ppGameObjects[target.m_nObjectIndex]->m_xmf4x4Transform = target.m_xmf4x4StartTransform;
+			m_ppGameObjects[target.m_nObjectIndex]->SetPosition(target.m_xmf3StartPosition);
+		}
 	}
 	ActivateLevel1Wave(1);
 }
@@ -278,14 +294,21 @@ void CScene::ActivateLevel1Wave(int nWave)
 	m_nCurrentLevel1Wave = nWave;
 	for (int i = 0; i < m_nLevel1Targets; i++)
 	{
-		bool bWaveTarget = (m_pLevel1Targets[i].m_nWave == nWave);
-		m_pLevel1Targets[i].m_bActive = bWaveTarget;
+		SLevel1TargetState& target = m_pLevel1Targets[i];
+		bool bWaveTarget = (target.m_nWave == nWave);
+		target.m_bActive = bWaveTarget;
+		target.m_bDestroying = false;
+		target.m_fDestroyElapsedTime = 0.0f;
 		if (bWaveTarget)
 		{
-			m_pLevel1Targets[i].m_nHP = m_pLevel1Targets[i].m_nMaxHP;
-			m_pLevel1Targets[i].m_fMoveAngle = 0.0f;
-			m_pLevel1Targets[i].m_xmf3BasePosition = m_pLevel1Targets[i].m_xmf3StartPosition;
-			if (m_ppGameObjects[m_pLevel1Targets[i].m_nObjectIndex]) m_ppGameObjects[m_pLevel1Targets[i].m_nObjectIndex]->SetPosition(m_pLevel1Targets[i].m_xmf3StartPosition);
+			target.m_nHP = target.m_nMaxHP;
+			target.m_fMoveAngle = 0.0f;
+			target.m_xmf3BasePosition = target.m_xmf3StartPosition;
+			if ((target.m_nObjectIndex >= 0) && (target.m_nObjectIndex < m_nGameObjects) && m_ppGameObjects[target.m_nObjectIndex])
+			{
+				m_ppGameObjects[target.m_nObjectIndex]->m_xmf4x4Transform = target.m_xmf4x4StartTransform;
+				m_ppGameObjects[target.m_nObjectIndex]->SetPosition(target.m_xmf3StartPosition);
+			}
 		}
 	}
 }
@@ -294,10 +317,41 @@ void CScene::UpdateLevel1Targets(float fTimeElapsed)
 {
 	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || !m_pLevel1Targets) return;
 
+	const float fDestroyDuration = 0.45f;
 	for (int i = 0; i < m_nLevel1Targets; i++)
 	{
 		SLevel1TargetState& target = m_pLevel1Targets[i];
 		if (!target.m_bActive) continue;
+		if ((target.m_nObjectIndex < 0) || (target.m_nObjectIndex >= m_nGameObjects)) continue;
+
+		CGameObject *pTargetObject = m_ppGameObjects[target.m_nObjectIndex];
+		if (!pTargetObject) continue;
+
+		if (target.m_bDestroying)
+		{
+			target.m_fDestroyElapsedTime += fTimeElapsed;
+			float fDestroyRatio = target.m_fDestroyElapsedTime / fDestroyDuration;
+			if (fDestroyRatio > 1.0f) fDestroyRatio = 1.0f;
+
+			XMFLOAT3 xmf3DestroyPosition = target.m_xmf3BasePosition;
+			xmf3DestroyPosition.y += fDestroyRatio * 8.0f;
+			float fDestroyScale = 1.0f + (fDestroyRatio * 0.8f);
+
+			pTargetObject->m_xmf4x4Transform = target.m_xmf4x4StartTransform;
+			pTargetObject->SetPosition(xmf3DestroyPosition);
+			pTargetObject->SetScale(fDestroyScale, fDestroyScale, fDestroyScale);
+			pTargetObject->Rotate(0.0f, 720.0f * target.m_fDestroyElapsedTime, 0.0f);
+
+			if (target.m_fDestroyElapsedTime >= fDestroyDuration)
+			{
+				target.m_bActive = false;
+				target.m_bDestroying = false;
+				target.m_fDestroyElapsedTime = 0.0f;
+				pTargetObject->m_xmf4x4Transform = target.m_xmf4x4StartTransform;
+				pTargetObject->SetPosition(target.m_xmf3StartPosition);
+			}
+			continue;
+		}
 
 		target.m_fMoveAngle += target.m_fMoveSpeed * fTimeElapsed;
 		XMFLOAT3 xmf3Position = target.m_xmf3BasePosition;
@@ -316,12 +370,28 @@ void CScene::UpdateLevel1Targets(float fTimeElapsed)
 			xmf3Position.z = target.m_xmf3BasePosition.z + cosf(target.m_fMoveAngle) * target.m_fMoveRadius;
 		}
 
-		if (m_ppGameObjects[target.m_nObjectIndex])
-		{
-			m_ppGameObjects[target.m_nObjectIndex]->SetPosition(xmf3Position);
-			m_ppGameObjects[target.m_nObjectIndex]->Rotate(0.0f, target.m_fMoveSpeed * fTimeElapsed * 20.0f, 0.0f);
-		}
+		pTargetObject->SetPosition(xmf3Position);
+		pTargetObject->Rotate(0.0f, target.m_fMoveSpeed * fTimeElapsed * 20.0f, 0.0f);
 	}
+}
+
+void CScene::UpdateLevel1ClearText(float fTimeElapsed)
+{
+	if (!m_bLevel1Cleared || !m_pPlayer) return;
+	if (!m_ppGameObjects || !m_ppGameObjects[LEVEL1_CLEAR_OBJECT]) return;
+
+	XMFLOAT3 xmf3PlayerPosition = m_pPlayer->GetPosition();
+	XMFLOAT3 xmf3Look = Vector3::Normalize(m_pPlayer->GetLookVector());
+	XMFLOAT3 xmf3Up = Vector3::Normalize(m_pPlayer->GetUpVector());
+	XMFLOAT3 xmf3ClearPosition = Vector3::Add(Vector3::Add(xmf3PlayerPosition, xmf3Look, 60.0f), xmf3Up, 18.0f);
+	float fClearScale = 10.0f + sinf(m_fLevel1ClearElapsedTime * 4.0f) * 0.8f;
+	float fClearYaw = 180.0f + m_pPlayer->GetYaw() + sinf(m_fLevel1ClearElapsedTime * 2.0f) * 8.0f;
+
+	CGameObject *pClearObject = m_ppGameObjects[LEVEL1_CLEAR_OBJECT];
+	pClearObject->m_xmf4x4Transform = Matrix4x4::Identity();
+	pClearObject->SetScale(fClearScale, fClearScale, fClearScale);
+	pClearObject->Rotate(0.0f, fClearYaw, 0.0f);
+	pClearObject->SetPosition(xmf3ClearPosition);
 }
 
 void CScene::CheckProjectileTargetCollisions()
@@ -339,7 +409,7 @@ void CScene::CheckProjectileTargetCollisions()
 		for (int j = 0; j < m_nLevel1Targets; j++)
 		{
 			SLevel1TargetState& target = m_pLevel1Targets[j];
-			if (!target.m_bActive) continue;
+			if (!target.m_bActive || target.m_bDestroying) continue;
 			if ((target.m_nObjectIndex < 0) || (target.m_nObjectIndex >= m_nGameObjects)) continue;
 			CGameObject *pTargetObject = m_ppGameObjects[target.m_nObjectIndex];
 			if (!pTargetObject) continue;
@@ -363,7 +433,7 @@ void CScene::ApplyDamageToLevel1Target(int nTargetIndex, int nDamage)
 	if (!m_pLevel1Targets || (nTargetIndex < 0) || (nTargetIndex >= m_nLevel1Targets)) return;
 
 	SLevel1TargetState& target = m_pLevel1Targets[nTargetIndex];
-	if (!target.m_bActive) return;
+	if (!target.m_bActive || target.m_bDestroying) return;
 
 	target.m_nHP -= nDamage;
 	char pstrDebug[160];
@@ -373,10 +443,10 @@ void CScene::ApplyDamageToLevel1Target(int nTargetIndex, int nDamage)
 	if (target.m_nHP <= 0)
 	{
 		target.m_nHP = 0;
-		target.m_bActive = false;
+		target.m_bDestroying = true;
+		target.m_fDestroyElapsedTime = 0.0f;
 		sprintf_s(pstrDebug, "[Level1] Target destroyed: wave=%d, objectIndex=%d\n", target.m_nWave, target.m_nObjectIndex);
 		::OutputDebugStringA(pstrDebug);
-		AdvanceLevel1WaveIfNeeded();
 	}
 }
 
@@ -389,7 +459,7 @@ bool CScene::IsCurrentLevel1WaveCleared() const
 	{
 		if (m_pLevel1Targets[i].m_nWave != m_nCurrentLevel1Wave) continue;
 		bHasCurrentWaveTarget = true;
-		if (m_pLevel1Targets[i].m_bActive) return(false);
+		if (m_pLevel1Targets[i].m_bActive || m_pLevel1Targets[i].m_bDestroying) return(false);
 	}
 	return(bHasCurrentWaveTarget);
 }
@@ -431,11 +501,12 @@ bool CScene::IsVisibleObject(int nObject) const
 	if (m_nSceneMode == GAME_SCENE_MENU) return((nObject >= UI_TUTORIAL_OBJECT) && (nObject <= UI_END_OBJECT));
 	if (m_nSceneMode == GAME_SCENE_LEVEL1)
 	{
+		if (nObject == LEVEL1_CLEAR_OBJECT) return(m_bLevel1Cleared);
 		if (nObject == WORLD_OBJECT_START + 4) return(true);
 		if ((nObject >= WORLD_OBJECT_START) && (nObject < WORLD_OBJECT_START + 4)) return(IsActiveLevel1TargetObject(nObject));
 		return(false);
 	}
-	return(nObject >= WORLD_OBJECT_START);
+	return((nObject >= WORLD_OBJECT_START) && (nObject != LEVEL1_CLEAR_OBJECT));
 }
 
 bool CScene::IsStartTitleHover(int x, int y) const
@@ -500,7 +571,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_ppGameObjects[UI_END_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/End.bin", XMFLOAT3(-10.0f, -55.0f, 0.0f), 11.0f);
 	for (int i = 0; i < UI_MENU_START_COUNT; i++) m_xmf4x4MenuStartBaseTransforms[i] = m_ppGameObjects[UI_MENU_START_FIRST_OBJECT + i]->m_xmf4x4Transform;
 	m_xmf4x4MenuEndBaseTransform = m_ppGameObjects[UI_END_OBJECT]->m_xmf4x4Transform;
-
+	m_ppGameObjects[LEVEL1_CLEAR_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Clear.bin", XMFLOAT3(0.0f, 120.0f, 200.0f), 1.0f);
 	int nMeshesInHierarchy = 0;
 	int pnMaterialsInHierarchy[64];
 	CGameObject *pApacheModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Apache.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -825,7 +896,11 @@ void CScene::AnimateObjects(float fTimeElapsed)
 	if (m_nSceneMode == GAME_SCENE_LEVEL1)
 	{
 		if (m_fProjectileFireCooldown > 0.0f) m_fProjectileFireCooldown -= fTimeElapsed;
-		if (m_bLevel1Cleared) m_fLevel1ClearElapsedTime += fTimeElapsed;
+		if (m_bLevel1Cleared)
+		{
+			m_fLevel1ClearElapsedTime += fTimeElapsed;
+			UpdateLevel1ClearText(fTimeElapsed);
+		}
 		for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i] && m_ppProjectiles[i]->IsActive()) m_ppProjectiles[i]->Animate(fTimeElapsed, NULL);
 		UpdateLevel1Targets(fTimeElapsed);
 		CheckProjectileTargetCollisions();
