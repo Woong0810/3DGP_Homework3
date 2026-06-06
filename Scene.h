@@ -39,6 +39,7 @@ struct LIGHTS
 
 class CTerrainObject;
 class CProjectileObject;
+class CHudBarObject;
 
 struct SLevel1TargetState
 {
@@ -126,10 +127,13 @@ private:
 	void ActivateLevel1Wave(int nWave);
 	void UpdateLevel1Targets(float fTimeElapsed);
 	void UpdateLevel1ClearText();
+	void UpdateLevel1HudBars(CCamera *pCamera);
+	void RenderLevel1HudBars(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera);
 	void CheckProjectileTargetCollisions();
 	void ApplyDamageToLevel1Target(int nTargetIndex, int nDamage);
 	bool IsCurrentLevel1WaveCleared() const;
 	void AdvanceLevel1WaveIfNeeded();
+	int GetHudEnemyTargetIndex() const;
 	bool IsActiveLevel1TargetObject(int nObjectIndex) const;
 	bool IsVisibleObject(int nObject) const;
 	bool IsStartTitleHover(int x, int y) const;
@@ -157,6 +161,12 @@ private:
 	CProjectileObject			**m_ppProjectiles = NULL;
 	int							m_nProjectiles = 0;
 	float						m_fProjectileFireCooldown = 0.0f;
+	CHudBarObject				**m_ppHudBars = NULL;
+	int							m_nHudBars = 0;
+	int							m_nPlayerMaxHP = 100;
+	int							m_nPlayerHP = 100;
+	int							m_nLastHitLevel1TargetIndex = -1;
+	float						m_fLastHitTargetDisplayElapsedTime = 0.0f;
 	SLevel1TargetState			*m_pLevel1Targets = NULL;
 	int							m_nLevel1Targets = 0;
 	int							m_nCurrentLevel1Wave = 1;

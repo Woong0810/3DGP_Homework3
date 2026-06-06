@@ -466,8 +466,9 @@ void CGameFramework::ProcessInput()
 			}
 			if (bMoveInput)
 			{
+				const float fLevel1PlayerMoveSpeed = 2.7f;
 				xmf3MoveDirection = Vector3::Normalize(xmf3MoveDirection);
-				xmf3MoveDirection = Vector3::ScalarProduct(xmf3MoveDirection, 1.5f, false);
+				xmf3MoveDirection = Vector3::ScalarProduct(xmf3MoveDirection, fLevel1PlayerMoveSpeed, false);
 				m_pPlayer->Move(xmf3MoveDirection, true);
 			}
 		}
