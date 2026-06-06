@@ -145,6 +145,7 @@ void CScene::ResetLevel1()
 	m_fProjectileFireCooldown = 0.0f;
 	m_bLevel1Cleared = false;
 	m_fLevel1ClearElapsedTime = 0.0f;
+	if (m_ppGameObjects && m_ppGameObjects[LEVEL1_CLEAR_OBJECT]) m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->m_xmf4x4Transform = m_xmf4x4Level1ClearBaseTransform;
 	ResetLevel1Targets();
 
 	char pstrDebug[128];
@@ -375,23 +376,19 @@ void CScene::UpdateLevel1Targets(float fTimeElapsed)
 	}
 }
 
-void CScene::UpdateLevel1ClearText(float fTimeElapsed)
+void CScene::UpdateLevel1ClearText()
 {
-	if (!m_bLevel1Cleared || !m_pPlayer) return;
+	if (!m_bLevel1Cleared) return;
 	if (!m_ppGameObjects || !m_ppGameObjects[LEVEL1_CLEAR_OBJECT]) return;
 
-	XMFLOAT3 xmf3PlayerPosition = m_pPlayer->GetPosition();
-	XMFLOAT3 xmf3Look = Vector3::Normalize(m_pPlayer->GetLookVector());
-	XMFLOAT3 xmf3Up = Vector3::Normalize(m_pPlayer->GetUpVector());
-	XMFLOAT3 xmf3ClearPosition = Vector3::Add(Vector3::Add(xmf3PlayerPosition, xmf3Look, 60.0f), xmf3Up, 18.0f);
-	float fClearScale = 10.0f + sinf(m_fLevel1ClearElapsedTime * 4.0f) * 0.8f;
-	float fClearYaw = 180.0f + m_pPlayer->GetYaw() + sinf(m_fLevel1ClearElapsedTime * 2.0f) * 8.0f;
+	const float fClearBaseY = 0.0f;
+	const float fClearBobSpeed = 2.5f;
+	const float fClearBobAmplitude = 5.0f;
+	float fClearY = fClearBaseY + sinf(m_fLevel1ClearElapsedTime * fClearBobSpeed) * fClearBobAmplitude;
 
 	CGameObject *pClearObject = m_ppGameObjects[LEVEL1_CLEAR_OBJECT];
-	pClearObject->m_xmf4x4Transform = Matrix4x4::Identity();
-	pClearObject->SetScale(fClearScale, fClearScale, fClearScale);
-	pClearObject->Rotate(0.0f, fClearYaw, 0.0f);
-	pClearObject->SetPosition(xmf3ClearPosition);
+	pClearObject->m_xmf4x4Transform = m_xmf4x4Level1ClearBaseTransform;
+	pClearObject->SetPosition(XMFLOAT3(0.0f, fClearY, 0.0f));
 }
 
 void CScene::CheckProjectileTargetCollisions()
@@ -571,7 +568,8 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_ppGameObjects[UI_END_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/End.bin", XMFLOAT3(-10.0f, -55.0f, 0.0f), 11.0f);
 	for (int i = 0; i < UI_MENU_START_COUNT; i++) m_xmf4x4MenuStartBaseTransforms[i] = m_ppGameObjects[UI_MENU_START_FIRST_OBJECT + i]->m_xmf4x4Transform;
 	m_xmf4x4MenuEndBaseTransform = m_ppGameObjects[UI_END_OBJECT]->m_xmf4x4Transform;
-	m_ppGameObjects[LEVEL1_CLEAR_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Clear.bin", XMFLOAT3(0.0f, 120.0f, 200.0f), 1.0f);
+	m_ppGameObjects[LEVEL1_CLEAR_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Clear.bin", XMFLOAT3(0.0f, 0.0f, 0.0f), 28.0f);
+	m_xmf4x4Level1ClearBaseTransform = m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->m_xmf4x4Transform;
 	int nMeshesInHierarchy = 0;
 	int pnMaterialsInHierarchy[64];
 	CGameObject *pApacheModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Apache.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -727,7 +725,7 @@ void CScene::UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList)
 {
 	::memcpy(m_pcbMappedLights->m_pLights, m_pLights, sizeof(LIGHT) * m_nLights);
 
-	if (m_nSceneMode < GAME_SCENE_TUTORIAL)
+	if ((m_nSceneMode < GAME_SCENE_TUTORIAL) || ((m_nSceneMode == GAME_SCENE_LEVEL1) && m_bLevel1Cleared))
 	{
 		XMFLOAT4 xmf4UiAmbient = XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f);
 		int nUiLights = 0;
@@ -899,7 +897,7 @@ void CScene::AnimateObjects(float fTimeElapsed)
 		if (m_bLevel1Cleared)
 		{
 			m_fLevel1ClearElapsedTime += fTimeElapsed;
-			UpdateLevel1ClearText(fTimeElapsed);
+			UpdateLevel1ClearText();
 		}
 		for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i] && m_ppProjectiles[i]->IsActive()) m_ppProjectiles[i]->Animate(fTimeElapsed, NULL);
 		UpdateLevel1Targets(fTimeElapsed);
@@ -919,7 +917,7 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 {
 	pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
 
-	if (m_nSceneMode < GAME_SCENE_TUTORIAL)
+	if ((m_nSceneMode < GAME_SCENE_TUTORIAL) || ((m_nSceneMode == GAME_SCENE_LEVEL1) && m_bLevel1Cleared))
 	{
 		pCamera->GenerateViewMatrix(XMFLOAT3(0.0f, 0.0f, -120.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
 	}
@@ -931,6 +929,16 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 
 	D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
 	pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress); //Lights
+
+	if ((m_nSceneMode == GAME_SCENE_LEVEL1) && m_bLevel1Cleared)
+	{
+		if (m_ppGameObjects[LEVEL1_CLEAR_OBJECT])
+		{
+			m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->UpdateTransform(NULL);
+			m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->Render(pd3dCommandList, pCamera, m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->m_ppd3dcbInstancingGameObjects, m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->m_ppcbMappedInstancingGameObjects);
+		}
+		return;
+	}
 
 	for (int i = 0; i < m_nGameObjects; i++)
 	{

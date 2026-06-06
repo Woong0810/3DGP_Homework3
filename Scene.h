@@ -90,6 +90,7 @@ public:
 
 	bool ProcessInput(UCHAR *pKeysBuffer);
 	bool IsLevelPlaying() const { return(m_nSceneMode >= GAME_SCENE_TUTORIAL); }
+	bool IsLevel1Cleared() const { return(m_bLevel1Cleared); }
     void AnimateObjects(float fTimeElapsed);
     void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera=NULL);
 
@@ -124,7 +125,7 @@ private:
 	void ResetLevel1Targets();
 	void ActivateLevel1Wave(int nWave);
 	void UpdateLevel1Targets(float fTimeElapsed);
-	void UpdateLevel1ClearText(float fTimeElapsed);
+	void UpdateLevel1ClearText();
 	void CheckProjectileTargetCollisions();
 	void ApplyDamageToLevel1Target(int nTargetIndex, int nDamage);
 	bool IsCurrentLevel1WaveCleared() const;
@@ -152,6 +153,7 @@ private:
 	float						m_fMenuEndHoverRotation = 0.0f;
 	XMFLOAT4X4				m_xmf4x4MenuStartBaseTransforms[4];
 	XMFLOAT4X4				m_xmf4x4MenuEndBaseTransform;
+	XMFLOAT4X4				m_xmf4x4Level1ClearBaseTransform;
 	CProjectileObject			**m_ppProjectiles = NULL;
 	int							m_nProjectiles = 0;
 	float						m_fProjectileFireCooldown = 0.0f;
