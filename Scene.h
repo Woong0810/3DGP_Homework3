@@ -37,6 +37,8 @@ struct LIGHTS
 	int						m_nLights;
 };
 
+class CTerrainObject;
+
 enum GAME_SCENE_MODE
 {
 	GAME_SCENE_START = 0,
@@ -75,6 +77,7 @@ public:
 	void ReleaseUploadBuffers();
 
 	CPlayer						*m_pPlayer = NULL;
+	CTerrainObject				*m_pTerrain = NULL;
 
 public:
 	ID3D12RootSignature			*m_pd3dGraphicsRootSignature = NULL;

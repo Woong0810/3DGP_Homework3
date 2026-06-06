@@ -4,6 +4,7 @@
 
 #include "stdafx.h"
 #include "Scene.h"
+#include "Terrain.h"
 
 static const int UI_TITLE_OBJECT = 0;
 static const int UI_NAME_OBJECT = 1;
@@ -19,7 +20,7 @@ static const int UI_END_OBJECT = 10;
 static const int UI_MENU_START_FIRST_OBJECT = UI_TUTORIAL_START_OBJECT;
 static const int UI_MENU_START_COUNT = 4;
 static const int WORLD_OBJECT_START = 11;
-static const int WORLD_OBJECT_COUNT = 8;
+static const int WORLD_OBJECT_COUNT = 9;
 static const int TOTAL_SCENE_OBJECTS = WORLD_OBJECT_START + WORLD_OBJECT_COUNT;
 
 CScene::CScene()
@@ -297,6 +298,11 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pEllenObject->Rotate(0.0f, 180.0f, 0.0f);
 	m_ppGameObjects[WORLD_OBJECT_START + 7] = pEllenObject;
 
+	int pnTerrainMaterials[1] = { 1 };
+	m_pTerrain = new CTerrainObject(pd3dDevice, pd3dCommandList, "HeightMap/Level_1_terrain.raw");
+	m_pTerrain->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnTerrainMaterials);
+	m_ppGameObjects[WORLD_OBJECT_START + 8] = m_pTerrain;
+
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
 }
 
@@ -313,6 +319,7 @@ void CScene::ReleaseObjects()
 	}
 
 	if (m_pLights) delete[] m_pLights;
+	m_pTerrain = NULL;
 }
 
 ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevice)
