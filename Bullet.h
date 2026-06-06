@@ -8,7 +8,7 @@ static const float PROJECTILE_FIRE_COOLDOWN = 0.10f;
 class CProjectileMesh : public CMesh
 {
 public:
-	CProjectileMesh(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, float fWidth = 1.2f, float fHeight = 1.2f, float fLength = 10.0f);
+	CProjectileMesh(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, float fWidth = 0.7f, float fHeight = 0.7f, float fLength = 6.0f);
 	virtual ~CProjectileMesh();
 
 	virtual void ReleaseUploadBuffers();

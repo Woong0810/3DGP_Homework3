@@ -183,12 +183,14 @@ void CScene::FirePlayerProjectile()
 	}
 	if (!ppProjectilesToFire[0]) return;
 
-	const float fMuzzleRightOffset = 1.1f;
+	const float fMuzzleRightOffset = 1.45f;
 	const float fMuzzleLookOffset = 3.0f;
-	const float fMuzzleUpOffset = -0.35f;
+	const float fMuzzleUpOffset = -0.65f;
 	XMFLOAT3 xmf3Look = Vector3::Normalize(m_pPlayer->GetLookVector());
 	XMFLOAT3 xmf3Right = Vector3::Normalize(m_pPlayer->GetRightVector());
 	XMFLOAT3 xmf3Up = Vector3::Normalize(m_pPlayer->GetUpVector());
+	const float fProjectileDownAimOffset = -0.08f;
+	XMFLOAT3 xmf3FireDirection = Vector3::Normalize(Vector3::Add(xmf3Look, xmf3Up, fProjectileDownAimOffset));
 	XMFLOAT3 xmf3BasePosition = m_pPlayer->GetPosition();
 
 	m_pPlayer->OnPrepareRender();
@@ -198,8 +200,8 @@ void CScene::FirePlayerProjectile()
 	XMFLOAT3 xmf3LeftMuzzlePosition = Vector3::Add(Vector3::Add(Vector3::Add(xmf3BasePosition, xmf3Right, -fMuzzleRightOffset), xmf3Look, fMuzzleLookOffset), xmf3Up, fMuzzleUpOffset);
 	XMFLOAT3 xmf3RightMuzzlePosition = Vector3::Add(Vector3::Add(Vector3::Add(xmf3BasePosition, xmf3Right, +fMuzzleRightOffset), xmf3Look, fMuzzleLookOffset), xmf3Up, fMuzzleUpOffset);
 
-	ppProjectilesToFire[0]->Fire(xmf3LeftMuzzlePosition, xmf3Look);
-	if (ppProjectilesToFire[1]) ppProjectilesToFire[1]->Fire(xmf3RightMuzzlePosition, xmf3Look);
+	ppProjectilesToFire[0]->Fire(xmf3LeftMuzzlePosition, xmf3FireDirection);
+	if (ppProjectilesToFire[1]) ppProjectilesToFire[1]->Fire(xmf3RightMuzzlePosition, xmf3FireDirection);
 	m_fProjectileFireCooldown = PROJECTILE_FIRE_COOLDOWN;
 }
 void CScene::InitializeLevel1Targets()
