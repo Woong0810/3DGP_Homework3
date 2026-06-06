@@ -85,6 +85,7 @@ CGameObject *CScene::CreateTextObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCo
 	pTextObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
 	pTextObject->SetChild(pTextModel, true);
 	pTextObject->SetScale(fScale, fScale, fScale);
+	pTextObject->Rotate(0.0f, 180.0f, 0.0f);
 	pTextObject->SetPosition(xmf3Position);
 	return(pTextObject);
 }
@@ -99,6 +100,8 @@ void CScene::SetSceneMode(GAME_SCENE_MODE nSceneMode)
 		m_bNameHovered = false;
 		m_bNameExploding = false;
 		m_fNameExplosionElapsedTime = 0.0f;
+		m_fTitleHoverRotation = 0.0f;
+		m_fNameHoverRotation = 0.0f;
 	}
 }
 
@@ -111,17 +114,17 @@ bool CScene::IsVisibleObject(int nObject) const
 
 bool CScene::IsStartTitleHover(int x, int y) const
 {
-	return((x >= 115) && (x <= 525) && (y >= 110) && (y <= 210));
+	return((x >= 220) && (x <= 1060) && (y >= 180) && (y <= 320));
 }
 
 bool CScene::IsStartNameHover(int x, int y) const
 {
-	return((x >= 210) && (x <= 430) && (y >= 250) && (y <= 340));
+	return((x >= 420) && (x <= 860) && (y >= 385) && (y <= 540));
 }
 
 bool CScene::IsMenuStartClick(int x, int y) const
 {
-	return((x >= 230) && (x <= 410) && (y >= 305) && (y <= 355));
+	return((x >= 460) && (x <= 820) && (y >= 455) && (y <= 540));
 }
 void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList)
 {
@@ -137,6 +140,8 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 
 	m_ppGameObjects[UI_TITLE_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/3DGameProgramming1.bin", XMFLOAT3(12.0f, 30.0f, 0.0f), 20.0f);
 	m_ppGameObjects[UI_NAME_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/MyName.bin", XMFLOAT3(-12.0f, -25.0f, 0.0f), 30.0f);
+	m_xmf4x4StartTitleBaseTransform = m_ppGameObjects[UI_TITLE_OBJECT]->m_xmf4x4Transform;
+	m_xmf4x4StartNameBaseTransform = m_ppGameObjects[UI_NAME_OBJECT]->m_xmf4x4Transform;
 	m_ppGameObjects[UI_TUTORIAL_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Tutorial.bin", XMFLOAT3(-80.0f, 110.0f, 140.0f), 6.0f);
 	m_ppGameObjects[UI_LEVEL1_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_1.bin", XMFLOAT3(-80.0f, 75.0f, 140.0f), 6.0f);
 	m_ppGameObjects[UI_LEVEL2_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_2.bin", XMFLOAT3(-80.0f, 40.0f, 140.0f), 6.0f);
@@ -313,6 +318,16 @@ void CScene::CreateShaderVariables(ID3D12Device *pd3dDevice, ID3D12GraphicsComma
 void CScene::UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList)
 {
 	::memcpy(m_pcbMappedLights->m_pLights, m_pLights, sizeof(LIGHT) * m_nLights);
+
+	if (m_nSceneMode != GAME_SCENE_LEVEL1)
+	{
+		XMFLOAT4 xmf4UiAmbient = XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f);
+		int nUiLights = 0;
+		::memcpy(&m_pcbMappedLights->m_xmf4GlobalAmbient, &xmf4UiAmbient, sizeof(XMFLOAT4));
+		::memcpy(&m_pcbMappedLights->m_nLights, &nUiLights, sizeof(int));
+		return;
+	}
+
 	::memcpy(&m_pcbMappedLights->m_xmf4GlobalAmbient, &m_xmf4GlobalAmbient, sizeof(XMFLOAT4));
 	::memcpy(&m_pcbMappedLights->m_nLights, &m_nLights, sizeof(int));
 }
@@ -399,7 +414,13 @@ void CScene::AnimateObjects(float fTimeElapsed)
 
 	if (m_nSceneMode == GAME_SCENE_START)
 	{
-		if (m_bTitleHovered && m_ppGameObjects[UI_TITLE_OBJECT]) m_ppGameObjects[UI_TITLE_OBJECT]->Rotate(0.0f, 150.0f * fTimeElapsed, 0.0f);
+		if (m_ppGameObjects[UI_TITLE_OBJECT])
+		{
+			m_fTitleHoverRotation = (m_bTitleHovered) ? (m_fTitleHoverRotation + 150.0f * fTimeElapsed) : 0.0f;
+			m_ppGameObjects[UI_TITLE_OBJECT]->m_xmf4x4Transform = m_xmf4x4StartTitleBaseTransform;
+			if (m_bTitleHovered) m_ppGameObjects[UI_TITLE_OBJECT]->Rotate(0.0f, m_fTitleHoverRotation, 0.0f);
+			else m_ppGameObjects[UI_TITLE_OBJECT]->UpdateTransform(NULL);
+		}
 
 		if (m_ppGameObjects[UI_NAME_OBJECT])
 		{
@@ -411,9 +432,12 @@ void CScene::AnimateObjects(float fTimeElapsed)
 				m_ppGameObjects[UI_NAME_OBJECT]->MoveUp(25.0f * fTimeElapsed);
 				if (m_fNameExplosionElapsedTime >= 0.8f) SetSceneMode(GAME_SCENE_MENU);
 			}
-			else if (m_bNameHovered)
+			else
 			{
-				m_ppGameObjects[UI_NAME_OBJECT]->Rotate(0.0f, 150.0f * fTimeElapsed, 0.0f);
+				m_fNameHoverRotation = (m_bNameHovered) ? (m_fNameHoverRotation + 150.0f * fTimeElapsed) : 0.0f;
+				m_ppGameObjects[UI_NAME_OBJECT]->m_xmf4x4Transform = m_xmf4x4StartNameBaseTransform;
+				if (m_bNameHovered) m_ppGameObjects[UI_NAME_OBJECT]->Rotate(0.0f, m_fNameHoverRotation, 0.0f);
+				else m_ppGameObjects[UI_NAME_OBJECT]->UpdateTransform(NULL);
 			}
 		}
 		return;

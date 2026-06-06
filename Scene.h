@@ -103,4 +103,8 @@ private:
 	bool						m_bNameExploding = false;
 	float						m_fNameExplosionElapsedTime = 0.0f;
 	float						m_fModeElapsedTime = 0.0f;
+	float						m_fTitleHoverRotation = 0.0f;
+	float						m_fNameHoverRotation = 0.0f;
+	XMFLOAT4X4				m_xmf4x4StartTitleBaseTransform;
+	XMFLOAT4X4				m_xmf4x4StartNameBaseTransform;
 };
