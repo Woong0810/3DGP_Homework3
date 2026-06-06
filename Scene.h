@@ -121,6 +121,10 @@ private:
 	void ResetLevel1Targets();
 	void ActivateLevel1Wave(int nWave);
 	void UpdateLevel1Targets(float fTimeElapsed);
+	void CheckProjectileTargetCollisions();
+	void ApplyDamageToLevel1Target(int nTargetIndex, int nDamage);
+	bool IsCurrentLevel1WaveCleared() const;
+	void AdvanceLevel1WaveIfNeeded();
 	bool IsActiveLevel1TargetObject(int nObjectIndex) const;
 	bool IsVisibleObject(int nObject) const;
 	bool IsStartTitleHover(int x, int y) const;
@@ -150,4 +154,6 @@ private:
 	SLevel1TargetState			*m_pLevel1Targets = NULL;
 	int							m_nLevel1Targets = 0;
 	int							m_nCurrentLevel1Wave = 1;
+	bool						m_bLevel1Cleared = false;
+	float						m_fLevel1ClearElapsedTime = 0.0f;
 };

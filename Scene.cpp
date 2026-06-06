@@ -142,6 +142,8 @@ void CScene::ResetLevel1()
 	m_pPlayer->SetVelocity(XMFLOAT3(0.0f, 0.0f, 0.0f));
 	for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i]) m_ppProjectiles[i]->Reset();
 	m_fProjectileFireCooldown = 0.0f;
+	m_bLevel1Cleared = false;
+	m_fLevel1ClearElapsedTime = 0.0f;
 	ResetLevel1Targets();
 
 	char pstrDebug[128];
@@ -322,6 +324,98 @@ void CScene::UpdateLevel1Targets(float fTimeElapsed)
 	}
 }
 
+void CScene::CheckProjectileTargetCollisions()
+{
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || !m_ppProjectiles || !m_pLevel1Targets) return;
+
+	for (int i = 0; i < m_nProjectiles; i++)
+	{
+		CProjectileObject *pProjectile = m_ppProjectiles[i];
+		if (!pProjectile || !pProjectile->IsActive()) continue;
+
+		XMFLOAT3 xmf3ProjectilePosition = pProjectile->GetPosition();
+		float fProjectileRadius = pProjectile->GetCollisionRadius();
+
+		for (int j = 0; j < m_nLevel1Targets; j++)
+		{
+			SLevel1TargetState& target = m_pLevel1Targets[j];
+			if (!target.m_bActive) continue;
+			if ((target.m_nObjectIndex < 0) || (target.m_nObjectIndex >= m_nGameObjects)) continue;
+			CGameObject *pTargetObject = m_ppGameObjects[target.m_nObjectIndex];
+			if (!pTargetObject) continue;
+
+			XMFLOAT3 xmf3TargetPosition = pTargetObject->GetPosition();
+			XMFLOAT3 xmf3Difference = Vector3::Subtract(xmf3ProjectilePosition, xmf3TargetPosition);
+			float fDistance = Vector3::Length(xmf3Difference);
+			float fHitDistance = fProjectileRadius + target.m_fCollisionRadius;
+			if (fDistance <= fHitDistance)
+			{
+				pProjectile->Reset();
+				ApplyDamageToLevel1Target(j, 1);
+				break;
+			}
+		}
+	}
+}
+
+void CScene::ApplyDamageToLevel1Target(int nTargetIndex, int nDamage)
+{
+	if (!m_pLevel1Targets || (nTargetIndex < 0) || (nTargetIndex >= m_nLevel1Targets)) return;
+
+	SLevel1TargetState& target = m_pLevel1Targets[nTargetIndex];
+	if (!target.m_bActive) return;
+
+	target.m_nHP -= nDamage;
+	char pstrDebug[160];
+	sprintf_s(pstrDebug, "[Level1] Target hit: index=%d, HP=%d\n", nTargetIndex, target.m_nHP);
+	::OutputDebugStringA(pstrDebug);
+
+	if (target.m_nHP <= 0)
+	{
+		target.m_nHP = 0;
+		target.m_bActive = false;
+		sprintf_s(pstrDebug, "[Level1] Target destroyed: wave=%d, objectIndex=%d\n", target.m_nWave, target.m_nObjectIndex);
+		::OutputDebugStringA(pstrDebug);
+		AdvanceLevel1WaveIfNeeded();
+	}
+}
+
+bool CScene::IsCurrentLevel1WaveCleared() const
+{
+	if (!m_pLevel1Targets) return(false);
+
+	bool bHasCurrentWaveTarget = false;
+	for (int i = 0; i < m_nLevel1Targets; i++)
+	{
+		if (m_pLevel1Targets[i].m_nWave != m_nCurrentLevel1Wave) continue;
+		bHasCurrentWaveTarget = true;
+		if (m_pLevel1Targets[i].m_bActive) return(false);
+	}
+	return(bHasCurrentWaveTarget);
+}
+
+void CScene::AdvanceLevel1WaveIfNeeded()
+{
+	if (m_bLevel1Cleared || !IsCurrentLevel1WaveCleared()) return;
+
+	if (m_nCurrentLevel1Wave == 1)
+	{
+		::OutputDebugStringA("[Level1] Activate Wave 2\n");
+		ActivateLevel1Wave(2);
+	}
+	else if (m_nCurrentLevel1Wave == 2)
+	{
+		::OutputDebugStringA("[Level1] Activate Wave 3\n");
+		ActivateLevel1Wave(3);
+	}
+	else if (m_nCurrentLevel1Wave == 3)
+	{
+		m_bLevel1Cleared = true;
+		m_fLevel1ClearElapsedTime = 0.0f;
+		for (int i = 0; i < m_nLevel1Targets; i++) m_pLevel1Targets[i].m_bActive = false;
+		::OutputDebugStringA("[Level1] Mission Clear\n");
+	}
+}
 bool CScene::IsActiveLevel1TargetObject(int nObjectIndex) const
 {
 	if (!m_pLevel1Targets) return(false);
@@ -731,8 +825,11 @@ void CScene::AnimateObjects(float fTimeElapsed)
 	if (m_nSceneMode == GAME_SCENE_LEVEL1)
 	{
 		if (m_fProjectileFireCooldown > 0.0f) m_fProjectileFireCooldown -= fTimeElapsed;
+		if (m_bLevel1Cleared) m_fLevel1ClearElapsedTime += fTimeElapsed;
 		for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i] && m_ppProjectiles[i]->IsActive()) m_ppProjectiles[i]->Animate(fTimeElapsed, NULL);
 		UpdateLevel1Targets(fTimeElapsed);
+		CheckProjectileTargetCollisions();
+		AdvanceLevel1WaveIfNeeded();
 	}
 
 	ClampPlayerToTerrain();
