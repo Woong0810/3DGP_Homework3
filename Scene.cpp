@@ -39,6 +39,14 @@ CScene::~CScene()
 {
 }
 
+void CScene::GetClearColor(float pfClearColor[4]) const
+{
+	const float pfDefaultClearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	const float pfLevel1BattleClearColor[4] = { 0.42f, 0.52f, 0.58f, 1.0f };
+	const float *pfSourceClearColor = ((m_nSceneMode == GAME_SCENE_LEVEL1) && !m_bLevel1Cleared) ? pfLevel1BattleClearColor : pfDefaultClearColor;
+	for (int i = 0; i < 4; i++) pfClearColor[i] = pfSourceClearColor[i];
+}
+
 void CScene::BuildDefaultLightsAndMaterials()
 {
 	m_nLights = 4;
@@ -512,23 +520,22 @@ int CScene::GetHudEnemyTargetIndex() const
 	return(-1);
 }
 
-void CScene::UpdateLevel1HudBars(CCamera *pCamera)
+void CScene::UpdateLevel1HudBars()
 {
-	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || !pCamera || !m_ppHudBars || (m_nHudBars < HUD_BAR_COUNT)) return;
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || !m_ppHudBars || (m_nHudBars < HUD_BAR_COUNT)) return;
+	if (!m_ppHudBars[HUD_PLAYER_BACKGROUND] || !m_ppHudBars[HUD_PLAYER_GAUGE] || !m_ppHudBars[HUD_ENEMY_BACKGROUND] || !m_ppHudBars[HUD_ENEMY_GAUGE]) return;
 
-	const float fHudDistance = 35.0f;
-	const float fPlayerHudUpOffset = 15.0f;
-	const float fEnemyHudUpOffset = 12.2f;
-	const float fHudFullWidth = 22.0f;
-	const float fHudHeight = 1.2f;
-	const float fHudDepth = 0.35f;
-	const float fGaugeDepthOffset = -0.10f;
+	const float fHudFullWidth = 150.0f;
+	const float fHudHeight = 3.5f;
+	const float fHudDepth = 0.5f;
+	const float fPlayerHudY = 48.0f;
+	const float fEnemyHudY = 41.0f;
+	const float fBackgroundZ = 0.0f;
+	const float fGaugeZ = -0.35f;
 
-	XMFLOAT3 xmf3CameraPosition = pCamera->GetPosition();
-	XMFLOAT3 xmf3CameraLook = Vector3::Normalize(pCamera->GetLookVector());
-	XMFLOAT3 xmf3CameraRight = Vector3::Normalize(pCamera->GetRightVector());
-	XMFLOAT3 xmf3CameraUp = Vector3::Normalize(pCamera->GetUpVector());
-	XMFLOAT3 xmf3HudCenter = Vector3::Add(xmf3CameraPosition, xmf3CameraLook, fHudDistance);
+	XMFLOAT3 xmf3HudRight = XMFLOAT3(1.0f, 0.0f, 0.0f);
+	XMFLOAT3 xmf3HudUp = XMFLOAT3(0.0f, 1.0f, 0.0f);
+	XMFLOAT3 xmf3HudLook = XMFLOAT3(0.0f, 0.0f, 1.0f);
 
 	float fPlayerRatio = (m_nPlayerMaxHP > 0) ? ((float)m_nPlayerHP / (float)m_nPlayerMaxHP) : 0.0f;
 	if (fPlayerRatio < 0.0f) fPlayerRatio = 0.0f;
@@ -544,22 +551,15 @@ void CScene::UpdateLevel1HudBars(CCamera *pCamera)
 	if (fEnemyRatio < 0.0f) fEnemyRatio = 0.0f;
 	if (fEnemyRatio > 1.0f) fEnemyRatio = 1.0f;
 
-	XMFLOAT3 xmf3PlayerBackgroundCenter = Vector3::Add(xmf3HudCenter, xmf3CameraUp, fPlayerHudUpOffset);
-	XMFLOAT3 xmf3EnemyBackgroundCenter = Vector3::Add(xmf3HudCenter, xmf3CameraUp, fEnemyHudUpOffset);
-	XMFLOAT3 xmf3GaugeDepthShift = Vector3::ScalarProduct(xmf3CameraLook, fGaugeDepthOffset, false);
-
 	float fPlayerGaugeWidth = fHudFullWidth * fPlayerRatio;
 	float fEnemyGaugeWidth = fHudFullWidth * fEnemyRatio;
-	float fPlayerGaugeOffset = (-fHudFullWidth * 0.5f) + (fPlayerGaugeWidth * 0.5f);
-	float fEnemyGaugeOffset = (-fHudFullWidth * 0.5f) + (fEnemyGaugeWidth * 0.5f);
+	float fPlayerGaugeCenterX = (-fHudFullWidth * 0.5f) + (fPlayerGaugeWidth * 0.5f);
+	float fEnemyGaugeCenterX = (-fHudFullWidth * 0.5f) + (fEnemyGaugeWidth * 0.5f);
 
-	XMFLOAT3 xmf3PlayerGaugeCenter = Vector3::Add(Vector3::Add(xmf3PlayerBackgroundCenter, xmf3CameraRight, fPlayerGaugeOffset), xmf3GaugeDepthShift);
-	XMFLOAT3 xmf3EnemyGaugeCenter = Vector3::Add(Vector3::Add(xmf3EnemyBackgroundCenter, xmf3CameraRight, fEnemyGaugeOffset), xmf3GaugeDepthShift);
-
-	m_ppHudBars[HUD_PLAYER_BACKGROUND]->SetHudTransform(xmf3PlayerBackgroundCenter, xmf3CameraRight, xmf3CameraUp, xmf3CameraLook, fHudFullWidth, fHudHeight, fHudDepth);
-	m_ppHudBars[HUD_PLAYER_GAUGE]->SetHudTransform(xmf3PlayerGaugeCenter, xmf3CameraRight, xmf3CameraUp, xmf3CameraLook, fPlayerGaugeWidth, fHudHeight, fHudDepth);
-	m_ppHudBars[HUD_ENEMY_BACKGROUND]->SetHudTransform(xmf3EnemyBackgroundCenter, xmf3CameraRight, xmf3CameraUp, xmf3CameraLook, fHudFullWidth, fHudHeight, fHudDepth);
-	m_ppHudBars[HUD_ENEMY_GAUGE]->SetHudTransform(xmf3EnemyGaugeCenter, xmf3CameraRight, xmf3CameraUp, xmf3CameraLook, fEnemyGaugeWidth, fHudHeight, fHudDepth);
+	m_ppHudBars[HUD_PLAYER_BACKGROUND]->SetHudTransform(XMFLOAT3(0.0f, fPlayerHudY, fBackgroundZ), xmf3HudRight, xmf3HudUp, xmf3HudLook, fHudFullWidth, fHudHeight, fHudDepth);
+	m_ppHudBars[HUD_PLAYER_GAUGE]->SetHudTransform(XMFLOAT3(fPlayerGaugeCenterX, fPlayerHudY, fGaugeZ), xmf3HudRight, xmf3HudUp, xmf3HudLook, fPlayerGaugeWidth, fHudHeight, fHudDepth);
+	m_ppHudBars[HUD_ENEMY_BACKGROUND]->SetHudTransform(XMFLOAT3(0.0f, fEnemyHudY, fBackgroundZ), xmf3HudRight, xmf3HudUp, xmf3HudLook, fHudFullWidth, fHudHeight, fHudDepth);
+	m_ppHudBars[HUD_ENEMY_GAUGE]->SetHudTransform(XMFLOAT3(fEnemyGaugeCenterX, fEnemyHudY, fGaugeZ), xmf3HudRight, xmf3HudUp, xmf3HudLook, fEnemyGaugeWidth, fHudHeight, fHudDepth);
 }
 
 void CScene::RenderLevel1HudBars(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
@@ -573,6 +573,34 @@ void CScene::RenderLevel1HudBars(ID3D12GraphicsCommandList *pd3dCommandList, CCa
 			m_ppHudBars[i]->Render(pd3dCommandList, pCamera, m_ppHudBars[i]->m_ppd3dcbInstancingGameObjects, m_ppHudBars[i]->m_ppcbMappedInstancingGameObjects);
 		}
 	}
+}
+
+void CScene::RenderLevel1HudOverlay(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
+{
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || !pd3dCommandList || !pCamera || !m_ppHudBars) return;
+
+	UpdateLevel1HudBars();
+
+	XMFLOAT3 xmf3OldPosition = pCamera->GetPosition();
+	XMFLOAT3 xmf3OldRight = pCamera->GetRightVector();
+	XMFLOAT3 xmf3OldUp = pCamera->GetUpVector();
+	XMFLOAT3 xmf3OldLook = pCamera->GetLookVector();
+	XMFLOAT3 xmf3OldLookAt = pCamera->GetLookAtPosition();
+
+	pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
+	pCamera->GenerateViewMatrix(XMFLOAT3(0.0f, 0.0f, -120.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
+	pCamera->SetViewportsAndScissorRects(pd3dCommandList);
+	pCamera->UpdateShaderVariables(pd3dCommandList);
+	UpdateShaderVariables(pd3dCommandList);
+	pd3dCommandList->SetGraphicsRootConstantBufferView(2, m_pd3dcbLights->GetGPUVirtualAddress());
+	RenderLevel1HudBars(pd3dCommandList, pCamera);
+
+	pCamera->SetPosition(xmf3OldPosition);
+	pCamera->GetRightVector() = xmf3OldRight;
+	pCamera->GetUpVector() = xmf3OldUp;
+	pCamera->GetLookVector() = xmf3OldLook;
+	pCamera->SetLookAtPosition(xmf3OldLookAt);
+	pCamera->RegenerateViewMatrix();
 }
 bool CScene::IsActiveLevel1TargetObject(int nObjectIndex) const
 {
@@ -725,10 +753,10 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_nHudBars = HUD_BAR_COUNT;
 	m_ppHudBars = new CHudBarObject*[m_nHudBars];
 	int pnHudMaterials[1] = { 1 };
-	m_ppHudBars[HUD_PLAYER_BACKGROUND] = new CHudBarObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.10f, 0.10f, 0.10f, 1.0f), XMFLOAT4(0.16f, 0.16f, 0.16f, 1.0f), XMFLOAT4(0.02f, 0.02f, 0.02f, 1.0f));
-	m_ppHudBars[HUD_PLAYER_GAUGE] = new CHudBarObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.10f, 0.45f, 0.10f, 1.0f), XMFLOAT4(0.15f, 0.90f, 0.20f, 1.0f), XMFLOAT4(0.02f, 0.25f, 0.03f, 1.0f));
-	m_ppHudBars[HUD_ENEMY_BACKGROUND] = new CHudBarObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.10f, 0.10f, 0.10f, 1.0f), XMFLOAT4(0.16f, 0.16f, 0.16f, 1.0f), XMFLOAT4(0.02f, 0.02f, 0.02f, 1.0f));
-	m_ppHudBars[HUD_ENEMY_GAUGE] = new CHudBarObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.55f, 0.12f, 0.04f, 1.0f), XMFLOAT4(1.0f, 0.20f, 0.05f, 1.0f), XMFLOAT4(0.30f, 0.04f, 0.01f, 1.0f));
+	m_ppHudBars[HUD_PLAYER_BACKGROUND] = new CHudBarObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.25f, 0.25f, 0.25f, 1.0f), XMFLOAT4(0.20f, 0.20f, 0.20f, 1.0f), XMFLOAT4(0.08f, 0.08f, 0.08f, 1.0f));
+	m_ppHudBars[HUD_PLAYER_GAUGE] = new CHudBarObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.35f, 1.0f, 0.35f, 1.0f), XMFLOAT4(0.20f, 1.0f, 0.25f, 1.0f), XMFLOAT4(0.0f, 0.75f, 0.05f, 1.0f));
+	m_ppHudBars[HUD_ENEMY_BACKGROUND] = new CHudBarObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.25f, 0.25f, 0.25f, 1.0f), XMFLOAT4(0.20f, 0.20f, 0.20f, 1.0f), XMFLOAT4(0.08f, 0.08f, 0.08f, 1.0f));
+	m_ppHudBars[HUD_ENEMY_GAUGE] = new CHudBarObject(pd3dDevice, pd3dCommandList, XMFLOAT4(1.0f, 0.25f, 0.08f, 1.0f), XMFLOAT4(1.0f, 0.28f, 0.06f, 1.0f), XMFLOAT4(0.85f, 0.08f, 0.02f, 1.0f));
 	for (int i = 0; i < m_nHudBars; i++) if (m_ppHudBars[i]) m_ppHudBars[i]->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnHudMaterials);
 	m_fProjectileFireCooldown = 0.0f;
 
@@ -1069,7 +1097,5 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 				m_ppProjectiles[i]->Render(pd3dCommandList, pCamera, m_ppProjectiles[i]->m_ppd3dcbInstancingGameObjects, m_ppProjectiles[i]->m_ppcbMappedInstancingGameObjects);
 			}
 		}
-		UpdateLevel1HudBars(pCamera);
-		RenderLevel1HudBars(pd3dCommandList, pCamera);
 	}
 }

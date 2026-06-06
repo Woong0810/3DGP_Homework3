@@ -92,8 +92,10 @@ public:
 	bool ProcessInput(UCHAR *pKeysBuffer);
 	bool IsLevelPlaying() const { return(m_nSceneMode >= GAME_SCENE_TUTORIAL); }
 	bool IsLevel1Cleared() const { return(m_bLevel1Cleared); }
+	void GetClearColor(float pfClearColor[4]) const;
     void AnimateObjects(float fTimeElapsed);
     void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera=NULL);
+	void RenderLevel1HudOverlay(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera);
 
 	void ReleaseUploadBuffers();
 
@@ -127,7 +129,7 @@ private:
 	void ActivateLevel1Wave(int nWave);
 	void UpdateLevel1Targets(float fTimeElapsed);
 	void UpdateLevel1ClearText();
-	void UpdateLevel1HudBars(CCamera *pCamera);
+	void UpdateLevel1HudBars();
 	void RenderLevel1HudBars(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera);
 	void CheckProjectileTargetCollisions();
 	void ApplyDamageToLevel1Target(int nTargetIndex, int nDamage);
