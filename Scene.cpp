@@ -99,6 +99,11 @@ void CScene::SetSceneMode(GAME_SCENE_MODE nSceneMode)
 {
 	m_nSceneMode = nSceneMode;
 	m_fModeElapsedTime = 0.0f;
+	if (m_nSceneMode < GAME_SCENE_TUTORIAL)
+	{
+		::ReleaseCapture();
+		::SetCursor(::LoadCursor(NULL, IDC_ARROW));
+	}
 	if (m_nSceneMode != GAME_SCENE_START)
 	{
 		m_bTitleHovered = false;
@@ -174,8 +179,8 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_ppGameObjects = new CGameObject*[m_nGameObjects];
 	for (int i = 0; i < m_nGameObjects; i++) m_ppGameObjects[i] = NULL;
 
-	m_ppGameObjects[UI_TITLE_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/3DGameProgramming1.bin", XMFLOAT3(12.0f, 30.0f, 0.0f), 20.0f);
-	m_ppGameObjects[UI_NAME_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/MyName.bin", XMFLOAT3(-12.0f, -25.0f, 0.0f), 30.0f);
+	m_ppGameObjects[UI_TITLE_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/3DGameProgramming1.bin", XMFLOAT3(0.0f, 30.0f, 0.0f), 20.0f);
+	m_ppGameObjects[UI_NAME_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/MyName.bin", XMFLOAT3(0.0f, -25.0f, 0.0f), 30.0f);
 	m_xmf4x4StartTitleBaseTransform = m_ppGameObjects[UI_TITLE_OBJECT]->m_xmf4x4Transform;
 	m_xmf4x4StartNameBaseTransform = m_ppGameObjects[UI_NAME_OBJECT]->m_xmf4x4Transform;
 	m_ppGameObjects[UI_TUTORIAL_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Tutorial.bin", XMFLOAT3(-75.0f, 45.0f, 0.0f), 11.0f);
@@ -496,7 +501,7 @@ void CScene::AnimateObjects(float fTimeElapsed)
 				m_ppGameObjects[UI_NAME_OBJECT]->m_xmf4x4Transform = m_xmf4x4StartNameBaseTransform;
 				m_ppGameObjects[UI_NAME_OBJECT]->Rotate(360.0f * fExplosionRatio, 1080.0f * fExplosionRatio, 540.0f * fExplosionRatio);
 				m_ppGameObjects[UI_NAME_OBJECT]->SetScale(1.0f + (3.5f * fExplosionRatio), 1.0f + (3.5f * fExplosionRatio), 1.0f + (3.5f * fExplosionRatio));
-				m_ppGameObjects[UI_NAME_OBJECT]->SetPosition(-12.0f + (28.0f * fShake), -25.0f + (70.0f * fExplosionRatio), 0.0f);
+				m_ppGameObjects[UI_NAME_OBJECT]->SetPosition(28.0f * fShake, -25.0f + (70.0f * fExplosionRatio), 0.0f);
 				if (m_fNameExplosionElapsedTime >= 0.45f) SetSceneMode(GAME_SCENE_MENU);
 			}
 			else
