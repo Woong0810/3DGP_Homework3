@@ -93,10 +93,13 @@ private:
 	CGameObject *CreateTextObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, const char *pstrFileName, const XMFLOAT3& xmf3Position, float fScale);
 	void SetSceneMode(GAME_SCENE_MODE nSceneMode);
 	bool IsVisibleObject(int nObject) const;
-	bool IsStartNameClick(int x, int y) const;
+	bool IsStartTitleHover(int x, int y) const;
+	bool IsStartNameHover(int x, int y) const;
 	bool IsMenuStartClick(int x, int y) const;
 
 	GAME_SCENE_MODE			m_nSceneMode = GAME_SCENE_START;
+	bool						m_bTitleHovered = false;
+	bool						m_bNameHovered = false;
 	bool						m_bNameExploding = false;
 	float						m_fNameExplosionElapsedTime = 0.0f;
 	float						m_fModeElapsedTime = 0.0f;

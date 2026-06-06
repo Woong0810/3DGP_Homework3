@@ -79,6 +79,7 @@ CGameObject *CScene::CreateTextObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCo
 	int nMeshesInHierarchy = 0;
 	int pnMaterialsInHierarchy[64] = { 0 };
 	CGameObject *pTextModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, pstrFileName, &nMeshesInHierarchy, pnMaterialsInHierarchy);
+	if (pTextModel) pTextModel->m_xmf4x4Transform = Matrix4x4::Identity();
 
 	CGameObject *pTextObject = new CGameObject();
 	pTextObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -94,6 +95,8 @@ void CScene::SetSceneMode(GAME_SCENE_MODE nSceneMode)
 	m_fModeElapsedTime = 0.0f;
 	if (m_nSceneMode != GAME_SCENE_START)
 	{
+		m_bTitleHovered = false;
+		m_bNameHovered = false;
 		m_bNameExploding = false;
 		m_fNameExplosionElapsedTime = 0.0f;
 	}
@@ -106,9 +109,14 @@ bool CScene::IsVisibleObject(int nObject) const
 	return(nObject >= WORLD_OBJECT_START);
 }
 
-bool CScene::IsStartNameClick(int x, int y) const
+bool CScene::IsStartTitleHover(int x, int y) const
 {
-	return((x >= 170) && (x <= 470) && (y >= 235) && (y <= 360));
+	return((x >= 115) && (x <= 525) && (y >= 110) && (y <= 210));
+}
+
+bool CScene::IsStartNameHover(int x, int y) const
+{
+	return((x >= 210) && (x <= 430) && (y >= 250) && (y <= 340));
 }
 
 bool CScene::IsMenuStartClick(int x, int y) const
@@ -127,8 +135,8 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_ppGameObjects = new CGameObject*[m_nGameObjects];
 	for (int i = 0; i < m_nGameObjects; i++) m_ppGameObjects[i] = NULL;
 
-	m_ppGameObjects[UI_TITLE_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/3DGameProgramming1.bin", XMFLOAT3(-120.0f, 85.0f, 120.0f), 7.0f);
-	m_ppGameObjects[UI_NAME_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/MyName.bin", XMFLOAT3(-65.0f, 25.0f, 95.0f), 8.0f);
+	m_ppGameObjects[UI_TITLE_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/3DGameProgramming1.bin", XMFLOAT3(12.0f, 30.0f, 0.0f), 20.0f);
+	m_ppGameObjects[UI_NAME_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/MyName.bin", XMFLOAT3(-12.0f, -25.0f, 0.0f), 30.0f);
 	m_ppGameObjects[UI_TUTORIAL_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Tutorial.bin", XMFLOAT3(-80.0f, 110.0f, 140.0f), 6.0f);
 	m_ppGameObjects[UI_LEVEL1_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_1.bin", XMFLOAT3(-80.0f, 75.0f, 140.0f), 6.0f);
 	m_ppGameObjects[UI_LEVEL2_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_2.bin", XMFLOAT3(-80.0f, 40.0f, 140.0f), 6.0f);
@@ -327,11 +335,16 @@ void CScene::ReleaseUploadBuffers()
 
 bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
 {
-	if (nMessageID != WM_LBUTTONUP) return(false);
-
 	int x = LOWORD(lParam);
 	int y = HIWORD(lParam);
-	if ((m_nSceneMode == GAME_SCENE_START) && IsStartNameClick(x, y))
+	if ((m_nSceneMode == GAME_SCENE_START) && (nMessageID == WM_MOUSEMOVE))
+	{
+		m_bTitleHovered = IsStartTitleHover(x, y);
+		m_bNameHovered = IsStartNameHover(x, y);
+		return(true);
+	}
+	if (nMessageID != WM_LBUTTONUP) return(false);
+	if ((m_nSceneMode == GAME_SCENE_START) && IsStartNameHover(x, y))
 	{
 		m_bNameExploding = true;
 		m_fNameExplosionElapsedTime = 0.0f;
@@ -386,6 +399,8 @@ void CScene::AnimateObjects(float fTimeElapsed)
 
 	if (m_nSceneMode == GAME_SCENE_START)
 	{
+		if (m_bTitleHovered && m_ppGameObjects[UI_TITLE_OBJECT]) m_ppGameObjects[UI_TITLE_OBJECT]->Rotate(0.0f, 150.0f * fTimeElapsed, 0.0f);
+
 		if (m_ppGameObjects[UI_NAME_OBJECT])
 		{
 			if (m_bNameExploding)
@@ -396,9 +411,9 @@ void CScene::AnimateObjects(float fTimeElapsed)
 				m_ppGameObjects[UI_NAME_OBJECT]->MoveUp(25.0f * fTimeElapsed);
 				if (m_fNameExplosionElapsedTime >= 0.8f) SetSceneMode(GAME_SCENE_MENU);
 			}
-			else
+			else if (m_bNameHovered)
 			{
-				m_ppGameObjects[UI_NAME_OBJECT]->Rotate(0.0f, 90.0f * fTimeElapsed, 0.0f);
+				m_ppGameObjects[UI_NAME_OBJECT]->Rotate(0.0f, 150.0f * fTimeElapsed, 0.0f);
 			}
 		}
 		return;
@@ -424,6 +439,11 @@ void CScene::AnimateObjects(float fTimeElapsed)
 void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
 {
 	pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
+
+	if (m_nSceneMode != GAME_SCENE_LEVEL1)
+	{
+		pCamera->GenerateViewMatrix(XMFLOAT3(0.0f, 0.0f, -120.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
+	}
 
 	pCamera->SetViewportsAndScissorRects(pd3dCommandList);
 	pCamera->UpdateShaderVariables(pd3dCommandList);
