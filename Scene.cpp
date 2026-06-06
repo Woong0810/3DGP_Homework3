@@ -104,6 +104,7 @@ void CScene::SetSceneMode(GAME_SCENE_MODE nSceneMode)
 		::ReleaseCapture();
 		::SetCursor(::LoadCursor(NULL, IDC_ARROW));
 	}
+	if (m_nSceneMode == GAME_SCENE_LEVEL1) ResetLevel1();
 	if (m_nSceneMode != GAME_SCENE_START)
 	{
 		m_bTitleHovered = false;
@@ -123,6 +124,13 @@ void CScene::SetSceneMode(GAME_SCENE_MODE nSceneMode)
 		m_bMenuEndHovered = false;
 		m_fMenuEndHoverRotation = 0.0f;
 	}
+}
+
+void CScene::ResetLevel1()
+{
+	if (!m_pPlayer) return;
+	m_pPlayer->SetPosition(XMFLOAT3(0.0f, 0.0f, 0.0f));
+	m_pPlayer->SetVelocity(XMFLOAT3(0.0f, 0.0f, 0.0f));
 }
 
 bool CScene::IsVisibleObject(int nObject) const
@@ -453,22 +461,7 @@ bool CScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wPar
 		return(m_nSceneMode < GAME_SCENE_TUTORIAL);
 	}
 
-	if (m_nSceneMode < GAME_SCENE_TUTORIAL) return(true);
-	if (nMessageID == WM_KEYDOWN)
-	{
-		switch (wParam)
-		{
-		case 'W': m_ppGameObjects[WORLD_OBJECT_START]->MoveForward(+1.0f); break;
-		case 'S': m_ppGameObjects[WORLD_OBJECT_START]->MoveForward(-1.0f); break;
-		case 'A': m_ppGameObjects[WORLD_OBJECT_START]->MoveStrafe(-1.0f); break;
-		case 'D': m_ppGameObjects[WORLD_OBJECT_START]->MoveStrafe(+1.0f); break;
-		case 'Q': m_ppGameObjects[WORLD_OBJECT_START]->MoveUp(+1.0f); break;
-		case 'R': m_ppGameObjects[WORLD_OBJECT_START]->MoveUp(-1.0f); break;
-		default:
-			break;
-		}
-	}
-	return(false);
+	return(m_nSceneMode < GAME_SCENE_TUTORIAL);
 }
 bool CScene::ProcessInput(UCHAR *pKeysBuffer)
 {

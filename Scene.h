@@ -95,6 +95,7 @@ public:
 private:
 	CGameObject *CreateTextObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, const char *pstrFileName, const XMFLOAT3& xmf3Position, float fScale);
 	void SetSceneMode(GAME_SCENE_MODE nSceneMode);
+	void ResetLevel1();
 	bool IsVisibleObject(int nObject) const;
 	bool IsStartTitleHover(int x, int y) const;
 	bool IsStartNameHover(int x, int y) const;
