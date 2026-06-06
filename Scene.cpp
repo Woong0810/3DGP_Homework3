@@ -130,8 +130,34 @@ void CScene::SetSceneMode(GAME_SCENE_MODE nSceneMode)
 void CScene::ResetLevel1()
 {
 	if (!m_pPlayer) return;
-	m_pPlayer->SetPosition(XMFLOAT3(0.0f, 0.0f, 0.0f));
+
+	const float fStartX = 0.0f;
+	const float fStartZ = -120.0f;
+	const float fStartAltitude = 60.0f;
+	float fTerrainY = (m_pTerrain) ? m_pTerrain->GetHeight(fStartX, fStartZ) : 20.0f;
+	XMFLOAT3 xmf3StartPosition = XMFLOAT3(fStartX, fTerrainY + fStartAltitude, fStartZ);
+
+	m_pPlayer->SetPosition(xmf3StartPosition);
 	m_pPlayer->SetVelocity(XMFLOAT3(0.0f, 0.0f, 0.0f));
+
+	char pstrDebug[128];
+	sprintf_s(pstrDebug, "Level-1 Reset Player Position: %.2f, %.2f, %.2f\n", xmf3StartPosition.x, xmf3StartPosition.y, xmf3StartPosition.z);
+	::OutputDebugStringA(pstrDebug);
+}
+
+void CScene::ClampPlayerToTerrain()
+{
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || !m_pPlayer || !m_pTerrain) return;
+
+	const float fMinAltitude = 40.0f;
+	XMFLOAT3 xmf3PlayerPosition = m_pPlayer->GetPosition();
+	float fTerrainY = m_pTerrain->GetHeight(xmf3PlayerPosition.x, xmf3PlayerPosition.z);
+	float fMinimumY = fTerrainY + fMinAltitude;
+	if (xmf3PlayerPosition.y < fMinimumY)
+	{
+		xmf3PlayerPosition.y = fMinimumY;
+		m_pPlayer->SetPosition(xmf3PlayerPosition);
+	}
 }
 
 bool CScene::IsVisibleObject(int nObject) const
@@ -542,6 +568,8 @@ void CScene::AnimateObjects(float fTimeElapsed)
 	{
 		if (m_ppGameObjects[i]) m_ppGameObjects[i]->Animate(fTimeElapsed, NULL);
 	}
+
+	ClampPlayerToTerrain();
 
 	if (m_pLights && m_pPlayer)
 	{
