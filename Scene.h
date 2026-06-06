@@ -37,6 +37,13 @@ struct LIGHTS
 	int						m_nLights;
 };
 
+enum GAME_SCENE_MODE
+{
+	GAME_SCENE_START = 0,
+	GAME_SCENE_MENU,
+	GAME_SCENE_LEVEL1
+};
+
 class CScene
 {
 public:
@@ -58,6 +65,7 @@ public:
 	ID3D12RootSignature *GetGraphicsRootSignature() { return(m_pd3dGraphicsRootSignature); }
 
 	bool ProcessInput(UCHAR *pKeysBuffer);
+	bool IsLevelPlaying() const { return(m_nSceneMode == GAME_SCENE_LEVEL1); }
     void AnimateObjects(float fTimeElapsed);
     void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera=NULL);
 
@@ -80,4 +88,16 @@ public:
 	LIGHTS						*m_pcbMappedLights = NULL;
 
 	float						m_fElapsedTime = 0.0f;
+
+private:
+	CGameObject *CreateTextObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, const char *pstrFileName, const XMFLOAT3& xmf3Position, float fScale);
+	void SetSceneMode(GAME_SCENE_MODE nSceneMode);
+	bool IsVisibleObject(int nObject) const;
+	bool IsStartNameClick(int x, int y) const;
+	bool IsMenuStartClick(int x, int y) const;
+
+	GAME_SCENE_MODE			m_nSceneMode = GAME_SCENE_START;
+	bool						m_bNameExploding = false;
+	float						m_fNameExplosionElapsedTime = 0.0f;
+	float						m_fModeElapsedTime = 0.0f;
 };

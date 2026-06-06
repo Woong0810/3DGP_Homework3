@@ -5,6 +5,18 @@
 #include "stdafx.h"
 #include "Scene.h"
 
+static const int UI_TITLE_OBJECT = 0;
+static const int UI_NAME_OBJECT = 1;
+static const int UI_TUTORIAL_OBJECT = 2;
+static const int UI_LEVEL1_OBJECT = 3;
+static const int UI_LEVEL2_OBJECT = 4;
+static const int UI_LEVEL3_OBJECT = 5;
+static const int UI_START_OBJECT = 6;
+static const int UI_END_OBJECT = 7;
+static const int WORLD_OBJECT_START = 8;
+static const int WORLD_OBJECT_COUNT = 8;
+static const int TOTAL_SCENE_OBJECTS = WORLD_OBJECT_START + WORLD_OBJECT_COUNT;
+
 CScene::CScene()
 {
 }
@@ -62,6 +74,47 @@ void CScene::BuildDefaultLightsAndMaterials()
 	m_pLights[3].m_fTheta = (float)cos(XMConvertToRadians(30.0f));
 }
 
+CGameObject *CScene::CreateTextObject(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, const char *pstrFileName, const XMFLOAT3& xmf3Position, float fScale)
+{
+	int nMeshesInHierarchy = 0;
+	int pnMaterialsInHierarchy[64] = { 0 };
+	CGameObject *pTextModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, pstrFileName, &nMeshesInHierarchy, pnMaterialsInHierarchy);
+
+	CGameObject *pTextObject = new CGameObject();
+	pTextObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
+	pTextObject->SetChild(pTextModel, true);
+	pTextObject->SetScale(fScale, fScale, fScale);
+	pTextObject->SetPosition(xmf3Position);
+	return(pTextObject);
+}
+
+void CScene::SetSceneMode(GAME_SCENE_MODE nSceneMode)
+{
+	m_nSceneMode = nSceneMode;
+	m_fModeElapsedTime = 0.0f;
+	if (m_nSceneMode != GAME_SCENE_START)
+	{
+		m_bNameExploding = false;
+		m_fNameExplosionElapsedTime = 0.0f;
+	}
+}
+
+bool CScene::IsVisibleObject(int nObject) const
+{
+	if (m_nSceneMode == GAME_SCENE_START) return((nObject == UI_TITLE_OBJECT) || (nObject == UI_NAME_OBJECT));
+	if (m_nSceneMode == GAME_SCENE_MENU) return((nObject >= UI_TUTORIAL_OBJECT) && (nObject <= UI_END_OBJECT));
+	return(nObject >= WORLD_OBJECT_START);
+}
+
+bool CScene::IsStartNameClick(int x, int y) const
+{
+	return((x >= 170) && (x <= 470) && (y >= 235) && (y <= 360));
+}
+
+bool CScene::IsMenuStartClick(int x, int y) const
+{
+	return((x >= 230) && (x <= 410) && (y >= 305) && (y <= 355));
+}
 void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList)
 {
 	m_pd3dGraphicsRootSignature = CreateGraphicsRootSignature(pd3dDevice);
@@ -70,8 +123,18 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 
 	BuildDefaultLightsAndMaterials();
 
-	m_nGameObjects = 8;
+	m_nGameObjects = TOTAL_SCENE_OBJECTS;
 	m_ppGameObjects = new CGameObject*[m_nGameObjects];
+	for (int i = 0; i < m_nGameObjects; i++) m_ppGameObjects[i] = NULL;
+
+	m_ppGameObjects[UI_TITLE_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/3DGameProgramming1.bin", XMFLOAT3(-120.0f, 85.0f, 120.0f), 7.0f);
+	m_ppGameObjects[UI_NAME_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/MyName.bin", XMFLOAT3(-65.0f, 25.0f, 95.0f), 8.0f);
+	m_ppGameObjects[UI_TUTORIAL_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Tutorial.bin", XMFLOAT3(-80.0f, 110.0f, 140.0f), 6.0f);
+	m_ppGameObjects[UI_LEVEL1_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_1.bin", XMFLOAT3(-80.0f, 75.0f, 140.0f), 6.0f);
+	m_ppGameObjects[UI_LEVEL2_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_2.bin", XMFLOAT3(-80.0f, 40.0f, 140.0f), 6.0f);
+	m_ppGameObjects[UI_LEVEL3_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Level_3.bin", XMFLOAT3(-80.0f, 5.0f, 140.0f), 6.0f);
+	m_ppGameObjects[UI_START_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Start.bin", XMFLOAT3(-55.0f, -30.0f, 140.0f), 6.0f);
+	m_ppGameObjects[UI_END_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/End.bin", XMFLOAT3(-45.0f, -65.0f, 140.0f), 6.0f);
 
 	int nMeshesInHierarchy = 0;
 	int pnMaterialsInHierarchy[64];
@@ -84,7 +147,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pApacheObject->SetPosition(+130.0f, 0.0f, 160.0f);
 	pApacheObject->SetScale(1.5f, 1.5f, 1.5f);
 	pApacheObject->Rotate(0.0f, 90.0f, 0.0f);
-	m_ppGameObjects[0] = pApacheObject;
+	m_ppGameObjects[WORLD_OBJECT_START + 0] = pApacheObject;
 
 	pApacheObject = new CApacheObject();
 	pApacheObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -93,7 +156,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pApacheObject->SetPosition(-75.0f, 0.0f, 80.0f);
 	pApacheObject->SetScale(1.5f, 1.5f, 1.5f);
 	pApacheObject->Rotate(0.0f, -90.0f, 0.0f);
-	m_ppGameObjects[1] = pApacheObject;
+	m_ppGameObjects[WORLD_OBJECT_START + 1] = pApacheObject;
 
 	nMeshesInHierarchy = 0;
 	CGameObject *pGunshipModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Gunship.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -105,7 +168,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pGunshipObject->SetPosition(135.0f, 40.0f, 220.0f);
 	pGunshipObject->SetScale(8.5f, 8.5f, 8.5f);
 	pGunshipObject->Rotate(0.0f, -90.0f, 0.0f);
-	m_ppGameObjects[2] = pGunshipObject;
+	m_ppGameObjects[WORLD_OBJECT_START + 2] = pGunshipObject;
 
 	nMeshesInHierarchy = 0;
 	CGameObject *pSuperCobraModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/SuperCobra.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -117,7 +180,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pSuperCobraObject->SetPosition(95.0f, 50.0f, 50.0f);
 	pSuperCobraObject->SetScale(4.5f, 4.5f, 4.5f);
 	pSuperCobraObject->Rotate(0.0f, -90.0f, 0.0f);
-	m_ppGameObjects[3] = pSuperCobraObject;
+	m_ppGameObjects[WORLD_OBJECT_START + 3] = pSuperCobraObject;
 
 	nMeshesInHierarchy = 0; 
 	CGameObject *pMi24Model = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Mi24.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -129,7 +192,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pMi24Object->SetPosition(-95.0f, 50.0f, 50.0f);
 	pMi24Object->SetScale(4.5f, 4.5f, 4.5f);
 	pMi24Object->Rotate(0.0f, -90.0f, 0.0f);
-	m_ppGameObjects[4] = pMi24Object;
+	m_ppGameObjects[WORLD_OBJECT_START + 4] = pMi24Object;
 
 	nMeshesInHierarchy = 0;
 	CGameObject* pHummerModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Hummer.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -141,7 +204,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pHummerObject->SetPosition(260.0f, 0.0f, 150.0f);
 	pHummerObject->SetScale(18.0f, 18.0f, 18.0f);
 	pHummerObject->Rotate(0.0f, -90.0f, 0.0f);
-	m_ppGameObjects[5] = pHummerObject;
+	m_ppGameObjects[WORLD_OBJECT_START + 5] = pHummerObject;
 
 	nMeshesInHierarchy = 0;
 	CGameObject* pAbramsModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/M26.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -153,7 +216,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pTankObject->SetPosition(260.0f, 0.0f, 150.0f);
 	pTankObject->SetScale(18.0f, 18.0f, 18.0f);
 	pTankObject->Rotate(0.0f, -90.0f, 0.0f);
-	m_ppGameObjects[6] = pTankObject;
+	m_ppGameObjects[WORLD_OBJECT_START + 6] = pTankObject;
 
 	nMeshesInHierarchy = 0;
 	CGameObject* pEllenModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Ellen.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -165,7 +228,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pEllenObject->SetPosition(70.0f, -15.0f, 10.0f);
 	pEllenObject->SetScale(28.0f, 28.0f, 28.0f);
 	pEllenObject->Rotate(0.0f, 180.0f, 0.0f);
-	m_ppGameObjects[7] = pEllenObject;
+	m_ppGameObjects[WORLD_OBJECT_START + 7] = pEllenObject;
 
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
 }
@@ -254,60 +317,110 @@ void CScene::ReleaseShaderVariables()
 		m_pd3dcbLights->Release();
 	}
 
-	for (int i = 0; i < m_nGameObjects; i++) m_ppGameObjects[i]->ReleaseShaderVariables();
+	for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->ReleaseShaderVariables();
 }
 
 void CScene::ReleaseUploadBuffers()
 {
-	for (int i = 0; i < m_nGameObjects; i++) m_ppGameObjects[i]->ReleaseUploadBuffers();
+	for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->ReleaseUploadBuffers();
 }
 
 bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
 {
-	return(false);
+	if (nMessageID != WM_LBUTTONUP) return(false);
+
+	int x = LOWORD(lParam);
+	int y = HIWORD(lParam);
+	if ((m_nSceneMode == GAME_SCENE_START) && IsStartNameClick(x, y))
+	{
+		m_bNameExploding = true;
+		m_fNameExplosionElapsedTime = 0.0f;
+		return(true);
+	}
+	if ((m_nSceneMode == GAME_SCENE_MENU) && IsMenuStartClick(x, y))
+	{
+		SetSceneMode(GAME_SCENE_LEVEL1);
+		return(true);
+	}
+	return(m_nSceneMode != GAME_SCENE_LEVEL1);
 }
 
 bool CScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
 {
-	switch (nMessageID)
+	if (nMessageID == WM_KEYUP)
 	{
-	case WM_KEYDOWN:
+		if ((wParam == VK_ESCAPE) && (m_nSceneMode == GAME_SCENE_LEVEL1))
+		{
+			SetSceneMode(GAME_SCENE_MENU);
+			return(true);
+		}
+		return(m_nSceneMode != GAME_SCENE_LEVEL1);
+	}
+
+	if (m_nSceneMode != GAME_SCENE_LEVEL1) return(true);
+	if (nMessageID == WM_KEYDOWN)
+	{
 		switch (wParam)
 		{
-		case 'W': m_ppGameObjects[0]->MoveForward(+1.0f); break;
-		case 'S': m_ppGameObjects[0]->MoveForward(-1.0f); break;
-		case 'A': m_ppGameObjects[0]->MoveStrafe(-1.0f); break;
-		case 'D': m_ppGameObjects[0]->MoveStrafe(+1.0f); break;
-		case 'Q': m_ppGameObjects[0]->MoveUp(+1.0f); break;
-		case 'R': m_ppGameObjects[0]->MoveUp(-1.0f); break;
+		case 'W': m_ppGameObjects[WORLD_OBJECT_START]->MoveForward(+1.0f); break;
+		case 'S': m_ppGameObjects[WORLD_OBJECT_START]->MoveForward(-1.0f); break;
+		case 'A': m_ppGameObjects[WORLD_OBJECT_START]->MoveStrafe(-1.0f); break;
+		case 'D': m_ppGameObjects[WORLD_OBJECT_START]->MoveStrafe(+1.0f); break;
+		case 'Q': m_ppGameObjects[WORLD_OBJECT_START]->MoveUp(+1.0f); break;
+		case 'R': m_ppGameObjects[WORLD_OBJECT_START]->MoveUp(-1.0f); break;
 		default:
 			break;
 		}
-		break;
-	default:
-		break;
 	}
 	return(false);
 }
-
 bool CScene::ProcessInput(UCHAR *pKeysBuffer)
 {
-	return(false);
+	return(m_nSceneMode != GAME_SCENE_LEVEL1);
 }
 
 void CScene::AnimateObjects(float fTimeElapsed)
 {
 	m_fElapsedTime = fTimeElapsed;
+	m_fModeElapsedTime += fTimeElapsed;
 
-	for (int i = 0; i < m_nGameObjects; i++) m_ppGameObjects[i]->Animate(fTimeElapsed, NULL);
+	if (m_nSceneMode == GAME_SCENE_START)
+	{
+		if (m_ppGameObjects[UI_NAME_OBJECT])
+		{
+			if (m_bNameExploding)
+			{
+				m_fNameExplosionElapsedTime += fTimeElapsed;
+				m_ppGameObjects[UI_NAME_OBJECT]->Rotate(0.0f, 720.0f * fTimeElapsed, 0.0f);
+				m_ppGameObjects[UI_NAME_OBJECT]->SetScale(1.04f, 1.04f, 1.04f);
+				m_ppGameObjects[UI_NAME_OBJECT]->MoveUp(25.0f * fTimeElapsed);
+				if (m_fNameExplosionElapsedTime >= 0.8f) SetSceneMode(GAME_SCENE_MENU);
+			}
+			else
+			{
+				m_ppGameObjects[UI_NAME_OBJECT]->Rotate(0.0f, 90.0f * fTimeElapsed, 0.0f);
+			}
+		}
+		return;
+	}
 
-	if (m_pLights)
+	if (m_nSceneMode == GAME_SCENE_MENU)
+	{
+		if (m_ppGameObjects[UI_START_OBJECT]) m_ppGameObjects[UI_START_OBJECT]->Rotate(0.0f, 35.0f * fTimeElapsed, 0.0f);
+		return;
+	}
+
+	for (int i = WORLD_OBJECT_START; i < m_nGameObjects; i++)
+	{
+		if (m_ppGameObjects[i]) m_ppGameObjects[i]->Animate(fTimeElapsed, NULL);
+	}
+
+	if (m_pLights && m_pPlayer)
 	{
 		m_pLights[1].m_xmf3Position = m_pPlayer->GetPosition();
 		m_pLights[1].m_xmf3Direction = m_pPlayer->GetLookVector();
 	}
 }
-
 void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
 {
 	pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
@@ -322,12 +435,10 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 
 	for (int i = 0; i < m_nGameObjects; i++)
 	{
-		if (m_ppGameObjects[i])
+		if (m_ppGameObjects[i] && IsVisibleObject(i))
 		{
-			m_ppGameObjects[i]->Animate(m_fElapsedTime, NULL);
 			m_ppGameObjects[i]->UpdateTransform(NULL);
 			m_ppGameObjects[i]->Render(pd3dCommandList, pCamera, m_ppGameObjects[i]->m_ppd3dcbInstancingGameObjects, m_ppGameObjects[i]->m_ppcbMappedInstancingGameObjects);
 		}
 	}
 }
-

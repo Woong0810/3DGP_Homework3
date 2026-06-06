@@ -282,7 +282,7 @@ void CGameFramework::ChangeSwapChainState()
 
 void CGameFramework::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
 {
-	if (m_pScene) m_pScene->OnProcessingMouseMessage(hWnd, nMessageID, wParam, lParam);
+	if (m_pScene && m_pScene->OnProcessingMouseMessage(hWnd, nMessageID, wParam, lParam)) return;
 	switch (nMessageID)
 	{
 		case WM_LBUTTONDOWN:
@@ -303,7 +303,7 @@ void CGameFramework::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM
 
 void CGameFramework::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
 {
-	if (m_pScene) m_pScene->OnProcessingKeyboardMessage(hWnd, nMessageID, wParam, lParam);
+	if (m_pScene && m_pScene->OnProcessingKeyboardMessage(hWnd, nMessageID, wParam, lParam)) return;
 	switch (nMessageID)
 	{
 		case WM_KEYUP:
@@ -467,7 +467,7 @@ void CGameFramework::ProcessInput()
 			if (dwDirection) m_pPlayer->Move(dwDirection, 1.5f, true);
 		}
 	}
-	m_pPlayer->Update(m_GameTimer.GetTimeElapsed());
+	if (!m_pScene || m_pScene->IsLevelPlaying()) m_pPlayer->Update(m_GameTimer.GetTimeElapsed());
 }
 
 void CGameFramework::AnimateObjects()
@@ -476,7 +476,7 @@ void CGameFramework::AnimateObjects()
 
 	if (m_pScene) m_pScene->AnimateObjects(fTimeElapsed);
 
-	m_pPlayer->Animate(fTimeElapsed, NULL);
+	if (!m_pScene || m_pScene->IsLevelPlaying()) m_pPlayer->Animate(fTimeElapsed, NULL);
 }
 
 void CGameFramework::WaitForGpuComplete()
@@ -544,7 +544,7 @@ void CGameFramework::FrameAdvance()
 #ifdef _WITH_PLAYER_TOP
 	m_pd3dCommandList->ClearDepthStencilView(d3dDsvCPUDescriptorHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, NULL);
 #endif
-	if (m_pPlayer) m_pPlayer->Render(m_pd3dCommandList, m_pCamera);
+	if (m_pPlayer && (!m_pScene || m_pScene->IsLevelPlaying())) m_pPlayer->Render(m_pd3dCommandList, m_pCamera);
 
 	d3dResourceBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	d3dResourceBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
