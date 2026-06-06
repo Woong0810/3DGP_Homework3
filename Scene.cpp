@@ -167,31 +167,38 @@ void CScene::FirePlayerProjectile()
 {
 	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || !m_pPlayer || (m_fProjectileFireCooldown > 0.0f)) return;
 
-	CProjectileObject *pProjectile = NULL;
+	CProjectileObject *ppProjectilesToFire[2] = { NULL, NULL };
 	for (int i = 0; i < m_nProjectiles; i++)
 	{
 		if (m_ppProjectiles[i] && !m_ppProjectiles[i]->IsActive())
 		{
-			pProjectile = m_ppProjectiles[i];
-			break;
+			if (!ppProjectilesToFire[0]) ppProjectilesToFire[0] = m_ppProjectiles[i];
+			else
+			{
+				ppProjectilesToFire[1] = m_ppProjectiles[i];
+				break;
+			}
 		}
 	}
-	if (!pProjectile) return;
+	if (!ppProjectilesToFire[0]) return;
 
+	const float fMuzzleRightOffset = 9.0f;
+	const float fMuzzleLookOffset = 20.0f;
+	const float fMuzzleUpOffset = -2.5f;
 	XMFLOAT3 xmf3Look = Vector3::Normalize(m_pPlayer->GetLookVector());
+	XMFLOAT3 xmf3Right = Vector3::Normalize(m_pPlayer->GetRightVector());
 	XMFLOAT3 xmf3Up = Vector3::Normalize(m_pPlayer->GetUpVector());
-	XMFLOAT3 xmf3PlayerPosition = m_pPlayer->GetPosition();
-	XMFLOAT3 xmf3FirePosition = Vector3::Add(Vector3::Add(xmf3PlayerPosition, xmf3Look, 45.0f), xmf3Up, -6.0f);
+	XMFLOAT3 xmf3BasePosition = m_pPlayer->GetPosition();
 
 	m_pPlayer->OnPrepareRender();
 	CGameObject *pMissileFrame = m_pPlayer->FindFrame("Hellfire_Missile");
-	if (pMissileFrame)
-	{
-		XMFLOAT3 xmf3MissileFramePosition = pMissileFrame->GetPosition();
-		xmf3FirePosition = Vector3::Add(Vector3::Add(xmf3MissileFramePosition, xmf3Look, 20.0f), xmf3Up, -2.0f);
-	}
+	if (pMissileFrame) xmf3BasePosition = pMissileFrame->GetPosition();
 
-	pProjectile->Fire(xmf3FirePosition, xmf3Look);
+	XMFLOAT3 xmf3LeftMuzzlePosition = Vector3::Add(Vector3::Add(Vector3::Add(xmf3BasePosition, xmf3Right, -fMuzzleRightOffset), xmf3Look, fMuzzleLookOffset), xmf3Up, fMuzzleUpOffset);
+	XMFLOAT3 xmf3RightMuzzlePosition = Vector3::Add(Vector3::Add(Vector3::Add(xmf3BasePosition, xmf3Right, +fMuzzleRightOffset), xmf3Look, fMuzzleLookOffset), xmf3Up, fMuzzleUpOffset);
+
+	ppProjectilesToFire[0]->Fire(xmf3LeftMuzzlePosition, xmf3Look);
+	if (ppProjectilesToFire[1]) ppProjectilesToFire[1]->Fire(xmf3RightMuzzlePosition, xmf3Look);
 	m_fProjectileFireCooldown = PROJECTILE_FIRE_COOLDOWN;
 }
 bool CScene::IsVisibleObject(int nObject) const

@@ -437,13 +437,12 @@ void CGameFramework::ProcessInput()
 	if (GetKeyboardState(pKeysBuffer) && m_pScene) bProcessedByScene = m_pScene->ProcessInput(pKeysBuffer);
 	if (!bProcessedByScene)
 	{
-		DWORD dwDirection = 0;
-		if (pKeysBuffer['W'] & 0xF0) dwDirection |= DIR_FORWARD;
-		if (pKeysBuffer['S'] & 0xF0) dwDirection |= DIR_BACKWARD;
-		if (pKeysBuffer['A'] & 0xF0) dwDirection |= DIR_LEFT;
-		if (pKeysBuffer['D'] & 0xF0) dwDirection |= DIR_RIGHT;
-		if (pKeysBuffer['Q'] & 0xF0) dwDirection |= DIR_UP;
-		if (pKeysBuffer['E'] & 0xF0) dwDirection |= DIR_DOWN;
+		XMFLOAT3 xmf3MoveDirection = XMFLOAT3(0.0f, 0.0f, 0.0f);
+		bool bMoveInput = false;
+		if (pKeysBuffer['W'] & 0xF0) { xmf3MoveDirection = Vector3::Add(xmf3MoveDirection, m_pPlayer->GetLookVector()); bMoveInput = true; }
+		if (pKeysBuffer['S'] & 0xF0) { xmf3MoveDirection = Vector3::Add(xmf3MoveDirection, m_pPlayer->GetLookVector(), -1.0f); bMoveInput = true; }
+		if (pKeysBuffer['A'] & 0xF0) { xmf3MoveDirection = Vector3::Add(xmf3MoveDirection, m_pPlayer->GetRightVector(), -1.0f); bMoveInput = true; }
+		if (pKeysBuffer['D'] & 0xF0) { xmf3MoveDirection = Vector3::Add(xmf3MoveDirection, m_pPlayer->GetRightVector()); bMoveInput = true; }
 
 		float cxDelta = 0.0f, cyDelta = 0.0f;
 		POINT ptCursorPos;
@@ -456,7 +455,7 @@ void CGameFramework::ProcessInput()
 			SetCursorPos(m_ptOldCursorPos.x, m_ptOldCursorPos.y);
 		}
 
-		if ((dwDirection != 0) || (cxDelta != 0.0f) || (cyDelta != 0.0f))
+		if (bMoveInput || (cxDelta != 0.0f) || (cyDelta != 0.0f))
 		{
 			if (cxDelta || cyDelta)
 			{
@@ -465,7 +464,12 @@ void CGameFramework::ProcessInput()
 				else
 					m_pPlayer->Rotate(cyDelta, cxDelta, 0.0f);
 			}
-			if (dwDirection) m_pPlayer->Move(dwDirection, 1.5f, true);
+			if (bMoveInput)
+			{
+				xmf3MoveDirection = Vector3::Normalize(xmf3MoveDirection);
+				xmf3MoveDirection = Vector3::ScalarProduct(xmf3MoveDirection, 1.5f, false);
+				m_pPlayer->Move(xmf3MoveDirection, true);
+			}
 		}
 	}
 	if (!m_pScene || m_pScene->IsLevelPlaying()) m_pPlayer->Update(m_GameTimer.GetTimeElapsed());
