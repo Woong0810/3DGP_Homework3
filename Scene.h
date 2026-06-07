@@ -157,6 +157,13 @@ private:
 	void SpawnLevel1HitEffect(const XMFLOAT3& xmf3Position);
 	void SpawnLevel1ExplosionEffect(const XMFLOAT3& xmf3Position);
 	void SpawnPlayerHitEffect(const XMFLOAT3& xmf3Position);
+	void BuildStartNameExplosionEffects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
+	void ResetStartNameExplosionEffects();
+	void UpdateStartNameExplosionEffects(float fTimeElapsed);
+	void RenderStartNameExplosionEffects(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera);
+	void ReleaseStartNameExplosionEffects();
+	CEffectObject *FindInactiveStartNameExplosionEffect();
+	void SpawnStartNameExplosionEffects();
 	void CheckProjectileTargetCollisions();
 	void CheckEnemyProjectilePlayerCollisions();
 	void ApplyDamageToLevel1Target(int nTargetIndex, int nDamage);
@@ -202,6 +209,8 @@ private:
 	int							m_nLevel1Decorations = 0;
 	CEffectObject				**m_ppLevel1Effects = NULL;
 	int							m_nLevel1Effects = 0;
+	CEffectObject				**m_ppStartNameExplosionEffects = NULL;
+	int							m_nStartNameExplosionEffects = 0;
 	int							m_nPlayerMaxHP = 100;
 	int							m_nPlayerHP = 100;
 	int							m_nLastHitLevel1TargetIndex = -1;

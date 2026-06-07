@@ -35,6 +35,7 @@ static const int HUD_ENEMY_BACKGROUND = 2;
 static const int HUD_ENEMY_GAUGE = 3;
 static const int MAX_ENEMY_PROJECTILES = 48;
 static const int LEVEL1_EFFECT_COUNT = 96;
+static const int START_NAME_EXPLOSION_EFFECT_COUNT = 32;
 
 CScene::CScene()
 {
@@ -134,6 +135,8 @@ void CScene::SetSceneMode(GAME_SCENE_MODE nSceneMode)
 		m_bNameHovered = false;
 		m_bNameExploding = false;
 		m_fNameExplosionElapsedTime = 0.0f;
+		ResetStartNameExplosionEffects();
+		if (m_ppGameObjects && m_ppGameObjects[UI_NAME_OBJECT]) m_ppGameObjects[UI_NAME_OBJECT]->m_xmf4x4Transform = m_xmf4x4StartNameBaseTransform;
 		m_fTitleHoverRotation = 0.0f;
 		m_fNameHoverRotation = 0.0f;
 	}
@@ -802,12 +805,12 @@ void CScene::SpawnLevel1HitEffect(const XMFLOAT3& xmf3Position)
 {
 	CEffectObject *pEffect = FindInactiveLevel1Effect();
 	if (!pEffect) return;
-	pEffect->Spawn(xmf3Position, XMFLOAT3(0.0f, 18.0f, 0.0f), 0.22f, 1.4f, 4.0f, XMFLOAT4(1.0f, 0.76f, 0.12f, 1.0f), XMFLOAT4(1.0f, 0.55f, 0.05f, 1.0f), XMFLOAT4(0.9f, 0.32f, 0.02f, 1.0f));
+	pEffect->Spawn(xmf3Position, XMFLOAT3(0.0f, 10.0f, 0.0f), 0.18f, 0.45f, 1.4f, XMFLOAT4(1.0f, 0.76f, 0.12f, 1.0f), XMFLOAT4(1.0f, 0.55f, 0.05f, 1.0f), XMFLOAT4(0.9f, 0.32f, 0.02f, 1.0f));
 }
 
 void CScene::SpawnLevel1ExplosionEffect(const XMFLOAT3& xmf3Position)
 {
-	const int nExplosionPieces = 12;
+	const int nExplosionPieces = 24;
 	const XMFLOAT4 xmf4Ambients[4] = { XMFLOAT4(1.0f, 0.82f, 0.12f, 1.0f), XMFLOAT4(1.0f, 0.42f, 0.05f, 1.0f), XMFLOAT4(0.85f, 0.08f, 0.03f, 1.0f), XMFLOAT4(0.20f, 0.18f, 0.16f, 1.0f) };
 	const XMFLOAT4 xmf4Diffuses[4] = { XMFLOAT4(1.0f, 0.70f, 0.05f, 1.0f), XMFLOAT4(1.0f, 0.30f, 0.04f, 1.0f), XMFLOAT4(0.75f, 0.06f, 0.02f, 1.0f), XMFLOAT4(0.12f, 0.11f, 0.10f, 1.0f) };
 	const XMFLOAT4 xmf4Emissives[4] = { XMFLOAT4(1.0f, 0.45f, 0.02f, 1.0f), XMFLOAT4(0.9f, 0.20f, 0.01f, 1.0f), XMFLOAT4(0.45f, 0.03f, 0.01f, 1.0f), XMFLOAT4(0.03f, 0.025f, 0.02f, 1.0f) };
@@ -816,10 +819,10 @@ void CScene::SpawnLevel1ExplosionEffect(const XMFLOAT3& xmf3Position)
 		CEffectObject *pEffect = FindInactiveLevel1Effect();
 		if (!pEffect) return;
 		float fAngle = XM_2PI * (float)i / (float)nExplosionPieces;
-		float fRadiusSpeed = 34.0f + (float)(i % 4) * 7.0f;
-		XMFLOAT3 xmf3Velocity = XMFLOAT3(cosf(fAngle) * fRadiusSpeed, 18.0f + (float)(i % 3) * 8.0f, sinf(fAngle) * fRadiusSpeed);
+		float fRadiusSpeed = 25.0f + (float)(i % 6) * 6.0f;
+		XMFLOAT3 xmf3Velocity = XMFLOAT3(cosf(fAngle) * fRadiusSpeed, 8.0f + (float)(i % 5) * 5.0f, sinf(fAngle) * fRadiusSpeed);
 		int nColor = i % 4;
-		pEffect->Spawn(xmf3Position, xmf3Velocity, 0.72f + (float)(i % 3) * 0.08f, 1.8f, 7.5f, xmf4Ambients[nColor], xmf4Diffuses[nColor], xmf4Emissives[nColor]);
+		pEffect->Spawn(xmf3Position, xmf3Velocity, 0.56f + (float)(i % 4) * 0.07f, 0.55f, 2.4f, xmf4Ambients[nColor], xmf4Diffuses[nColor], xmf4Emissives[nColor]);
 	}
 }
 
@@ -830,8 +833,93 @@ void CScene::SpawnPlayerHitEffect(const XMFLOAT3& xmf3Position)
 		CEffectObject *pEffect = FindInactiveLevel1Effect();
 		if (!pEffect) return;
 		float fAngle = XM_PIDIV2 * (float)i;
-		XMFLOAT3 xmf3Velocity = XMFLOAT3(cosf(fAngle) * 12.0f, 12.0f, sinf(fAngle) * 12.0f);
-		pEffect->Spawn(xmf3Position, xmf3Velocity, 0.28f, 1.6f, 5.2f, XMFLOAT4(1.0f, 0.26f, 0.08f, 1.0f), XMFLOAT4(1.0f, 0.15f, 0.03f, 1.0f), XMFLOAT4(0.8f, 0.04f, 0.01f, 1.0f));
+		XMFLOAT3 xmf3Velocity = XMFLOAT3(cosf(fAngle) * 8.0f, 8.5f, sinf(fAngle) * 8.0f);
+		pEffect->Spawn(xmf3Position, xmf3Velocity, 0.24f, 0.55f, 1.8f, XMFLOAT4(1.0f, 0.26f, 0.08f, 1.0f), XMFLOAT4(1.0f, 0.15f, 0.03f, 1.0f), XMFLOAT4(0.8f, 0.04f, 0.01f, 1.0f));
+	}
+}
+
+void CScene::BuildStartNameExplosionEffects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList)
+{
+	ReleaseStartNameExplosionEffects();
+
+	m_nStartNameExplosionEffects = START_NAME_EXPLOSION_EFFECT_COUNT;
+	m_ppStartNameExplosionEffects = new CEffectObject*[m_nStartNameExplosionEffects];
+	int pnEffectMaterials[1] = { 1 };
+	for (int i = 0; i < m_nStartNameExplosionEffects; i++)
+	{
+		m_ppStartNameExplosionEffects[i] = new CEffectObject(pd3dDevice, pd3dCommandList);
+		m_ppStartNameExplosionEffects[i]->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnEffectMaterials);
+	}
+}
+
+void CScene::ResetStartNameExplosionEffects()
+{
+	if (!m_ppStartNameExplosionEffects) return;
+	for (int i = 0; i < m_nStartNameExplosionEffects; i++) if (m_ppStartNameExplosionEffects[i]) m_ppStartNameExplosionEffects[i]->Reset();
+}
+
+void CScene::UpdateStartNameExplosionEffects(float fTimeElapsed)
+{
+	if (!m_ppStartNameExplosionEffects) return;
+	for (int i = 0; i < m_nStartNameExplosionEffects; i++) if (m_ppStartNameExplosionEffects[i] && m_ppStartNameExplosionEffects[i]->IsActive()) m_ppStartNameExplosionEffects[i]->Animate(fTimeElapsed, NULL);
+}
+
+void CScene::RenderStartNameExplosionEffects(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
+{
+	if ((m_nSceneMode != GAME_SCENE_START) || !m_bNameExploding || !m_ppStartNameExplosionEffects) return;
+	for (int i = 0; i < m_nStartNameExplosionEffects; i++)
+	{
+		if (m_ppStartNameExplosionEffects[i] && m_ppStartNameExplosionEffects[i]->IsActive())
+		{
+			m_ppStartNameExplosionEffects[i]->Render(pd3dCommandList, pCamera, m_ppStartNameExplosionEffects[i]->m_ppd3dcbInstancingGameObjects, m_ppStartNameExplosionEffects[i]->m_ppcbMappedInstancingGameObjects);
+		}
+	}
+}
+
+void CScene::ReleaseStartNameExplosionEffects()
+{
+	if (m_ppStartNameExplosionEffects)
+	{
+		for (int i = 0; i < m_nStartNameExplosionEffects; i++) if (m_ppStartNameExplosionEffects[i]) m_ppStartNameExplosionEffects[i]->Release();
+		delete[] m_ppStartNameExplosionEffects;
+		m_ppStartNameExplosionEffects = NULL;
+	}
+	m_nStartNameExplosionEffects = 0;
+}
+
+CEffectObject *CScene::FindInactiveStartNameExplosionEffect()
+{
+	if (!m_ppStartNameExplosionEffects) return(NULL);
+	for (int i = 0; i < m_nStartNameExplosionEffects; i++) if (m_ppStartNameExplosionEffects[i] && !m_ppStartNameExplosionEffects[i]->IsActive()) return(m_ppStartNameExplosionEffects[i]);
+	return(NULL);
+}
+
+void CScene::SpawnStartNameExplosionEffects()
+{
+	ResetStartNameExplosionEffects();
+	XMFLOAT3 xmf3BasePosition = XMFLOAT3(0.0f, -25.0f, 0.0f);
+	if (m_ppGameObjects && m_ppGameObjects[UI_NAME_OBJECT])
+	{
+		m_ppGameObjects[UI_NAME_OBJECT]->m_xmf4x4Transform = m_xmf4x4StartNameBaseTransform;
+		xmf3BasePosition = m_ppGameObjects[UI_NAME_OBJECT]->GetPosition();
+	}
+
+	const XMFLOAT4 xmf4Ambients[4] = { XMFLOAT4(1.0f, 0.78f, 0.10f, 1.0f), XMFLOAT4(1.0f, 0.34f, 0.05f, 1.0f), XMFLOAT4(0.85f, 0.08f, 0.03f, 1.0f), XMFLOAT4(0.86f, 0.82f, 0.72f, 1.0f) };
+	const XMFLOAT4 xmf4Diffuses[4] = { XMFLOAT4(1.0f, 0.62f, 0.04f, 1.0f), XMFLOAT4(1.0f, 0.24f, 0.03f, 1.0f), XMFLOAT4(0.70f, 0.05f, 0.02f, 1.0f), XMFLOAT4(0.92f, 0.88f, 0.78f, 1.0f) };
+	const XMFLOAT4 xmf4Emissives[4] = { XMFLOAT4(0.9f, 0.32f, 0.02f, 1.0f), XMFLOAT4(0.75f, 0.12f, 0.01f, 1.0f), XMFLOAT4(0.38f, 0.02f, 0.01f, 1.0f), XMFLOAT4(0.18f, 0.16f, 0.12f, 1.0f) };
+	for (int i = 0; i < START_NAME_EXPLOSION_EFFECT_COUNT; i++)
+	{
+		CEffectObject *pEffect = FindInactiveStartNameExplosionEffect();
+		if (!pEffect) return;
+		float fAngle = XM_2PI * (float)i / (float)START_NAME_EXPLOSION_EFFECT_COUNT;
+		float fRadiusSpeed = 30.0f + (float)(i % 6) * 5.0f;
+		float fDirectionSign = (i % 2) ? -1.0f : 1.0f;
+		XMFLOAT3 xmf3Velocity = XMFLOAT3(cosf(fAngle) * fRadiusSpeed, sinf(fAngle) * 24.0f + (float)((i % 5) - 2) * 5.0f, fDirectionSign * (6.0f + (float)(i % 4) * 3.0f));
+		float fLifeTime = 0.75f + (float)(i % 5) * 0.07f;
+		float fStartScale = 0.5f + (float)(i % 3) * 0.1f;
+		float fEndScale = 1.9f + (float)(i % 4) * 0.25f;
+		int nColor = i % 4;
+		pEffect->Spawn(xmf3BasePosition, xmf3Velocity, fLifeTime, fStartScale, fEndScale, xmf4Ambients[nColor], xmf4Diffuses[nColor], xmf4Emissives[nColor]);
 	}
 }
 void CScene::CheckProjectileTargetCollisions()
@@ -1031,7 +1119,7 @@ bool CScene::IsActiveLevel1TargetObject(int nObjectIndex) const
 }
 bool CScene::IsVisibleObject(int nObject) const
 {
-	if (m_nSceneMode == GAME_SCENE_START) return((nObject == UI_TITLE_OBJECT) || (nObject == UI_NAME_OBJECT));
+	if (m_nSceneMode == GAME_SCENE_START) return((nObject == UI_TITLE_OBJECT) || ((nObject == UI_NAME_OBJECT) && !m_bNameExploding));
 	if (m_nSceneMode == GAME_SCENE_MENU) return((nObject >= UI_TUTORIAL_OBJECT) && (nObject <= UI_END_OBJECT));
 	if (m_nSceneMode == GAME_SCENE_LEVEL1)
 	{
@@ -1181,6 +1269,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	}
 
 	BuildLevel1Effects(pd3dDevice, pd3dCommandList);
+	BuildStartNameExplosionEffects(pd3dDevice, pd3dCommandList);
 
 	m_nHudBars = HUD_BAR_COUNT;
 	m_ppHudBars = new CHudBarObject*[m_nHudBars];
@@ -1241,6 +1330,7 @@ void CScene::ReleaseObjects()
 
 	ReleaseLevel1Decorations();
 	ReleaseLevel1Effects();
+	ReleaseStartNameExplosionEffects();
 
 	if (m_ppHudBars)
 	{
@@ -1347,6 +1437,7 @@ void CScene::ReleaseShaderVariables()
 	for (int i = 0; i < m_nHudBars; i++) if (m_ppHudBars[i]) m_ppHudBars[i]->ReleaseShaderVariables();
 	for (int i = 0; i < m_nLevel1Decorations; i++) if (m_ppLevel1Decorations[i]) m_ppLevel1Decorations[i]->ReleaseShaderVariables();
 	for (int i = 0; i < m_nLevel1Effects; i++) if (m_ppLevel1Effects[i]) m_ppLevel1Effects[i]->ReleaseShaderVariables();
+	for (int i = 0; i < m_nStartNameExplosionEffects; i++) if (m_ppStartNameExplosionEffects[i]) m_ppStartNameExplosionEffects[i]->ReleaseShaderVariables();
 }
 
 void CScene::ReleaseUploadBuffers()
@@ -1357,6 +1448,7 @@ void CScene::ReleaseUploadBuffers()
 	for (int i = 0; i < m_nHudBars; i++) if (m_ppHudBars[i]) m_ppHudBars[i]->ReleaseUploadBuffers();
 	for (int i = 0; i < m_nLevel1Decorations; i++) if (m_ppLevel1Decorations[i]) m_ppLevel1Decorations[i]->ReleaseUploadBuffers();
 	for (int i = 0; i < m_nLevel1Effects; i++) if (m_ppLevel1Effects[i]) m_ppLevel1Effects[i]->ReleaseUploadBuffers();
+	for (int i = 0; i < m_nStartNameExplosionEffects; i++) if (m_ppStartNameExplosionEffects[i]) m_ppStartNameExplosionEffects[i]->ReleaseUploadBuffers();
 }
 
 bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
@@ -1378,10 +1470,11 @@ bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam,
 		return(true);
 	}
 	if (nMessageID != WM_LBUTTONUP) return(false);
-	if ((m_nSceneMode == GAME_SCENE_START) && IsStartNameHover(x, y))
+	if ((m_nSceneMode == GAME_SCENE_START) && !m_bNameExploding && IsStartNameHover(x, y))
 	{
 		m_bNameExploding = true;
 		m_fNameExplosionElapsedTime = 0.0f;
+		SpawnStartNameExplosionEffects();
 		return(true);
 	}
 	if (m_nSceneMode == GAME_SCENE_MENU)
@@ -1446,14 +1539,8 @@ void CScene::AnimateObjects(float fTimeElapsed)
 			if (m_bNameExploding)
 			{
 				m_fNameExplosionElapsedTime += fTimeElapsed;
-				float fExplosionRatio = m_fNameExplosionElapsedTime / 0.45f;
-				if (fExplosionRatio > 1.0f) fExplosionRatio = 1.0f;
-				float fShake = sinf(fExplosionRatio * XM_2PI * 6.0f) * (1.0f - fExplosionRatio);
-				m_ppGameObjects[UI_NAME_OBJECT]->m_xmf4x4Transform = m_xmf4x4StartNameBaseTransform;
-				m_ppGameObjects[UI_NAME_OBJECT]->Rotate(360.0f * fExplosionRatio, 1080.0f * fExplosionRatio, 540.0f * fExplosionRatio);
-				m_ppGameObjects[UI_NAME_OBJECT]->SetScale(1.0f + (3.5f * fExplosionRatio), 1.0f + (3.5f * fExplosionRatio), 1.0f + (3.5f * fExplosionRatio));
-				m_ppGameObjects[UI_NAME_OBJECT]->SetPosition(28.0f * fShake, -25.0f + (70.0f * fExplosionRatio), 0.0f);
-				if (m_fNameExplosionElapsedTime >= 0.45f) SetSceneMode(GAME_SCENE_MENU);
+				UpdateStartNameExplosionEffects(fTimeElapsed);
+				if (m_fNameExplosionElapsedTime >= 0.95f) SetSceneMode(GAME_SCENE_MENU);
 			}
 			else
 			{
@@ -1575,6 +1662,8 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 			m_ppGameObjects[i]->Render(pd3dCommandList, pCamera, m_ppGameObjects[i]->m_ppd3dcbInstancingGameObjects, m_ppGameObjects[i]->m_ppcbMappedInstancingGameObjects);
 		}
 	}
+
+	if (m_nSceneMode == GAME_SCENE_START) RenderStartNameExplosionEffects(pd3dCommandList, pCamera);
 
 	if (m_nSceneMode == GAME_SCENE_LEVEL1)
 	{
