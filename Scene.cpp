@@ -279,8 +279,8 @@ void CScene::InitializeLevel1Targets()
 	{
 		XMFLOAT3(-120.0f, 80.0f, 200.0f),
 		XMFLOAT3(+120.0f, 80.0f, 220.0f),
-		XMFLOAT3(0.0f, 95.0f, 330.0f),
-		XMFLOAT3(0.0f, 110.0f, 450.0f)
+		XMFLOAT3(0.0f, 300.0f, 300.0f),
+		XMFLOAT3(0.0f, 110.0f, -200.0f)
 	};
 	const int pnObjectIndices[4] = { nApache1Index, nApache2Index, nSuperCobraIndex, nMi24Index };
 	const int pnWaves[4] = { 1, 1, 2, 3 };
