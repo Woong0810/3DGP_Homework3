@@ -40,6 +40,7 @@ struct LIGHTS
 class CTerrainObject;
 class CProjectileObject;
 class CHudBarObject;
+class CEffectObject;
 
 struct SLevel1TargetState
 {
@@ -147,6 +148,15 @@ private:
 	void BuildLevel1Decorations(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
 	void RenderLevel1Decorations(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera);
 	void ReleaseLevel1Decorations();
+	void BuildLevel1Effects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
+	void ResetLevel1Effects();
+	void UpdateLevel1Effects(float fTimeElapsed);
+	void RenderLevel1Effects(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera);
+	void ReleaseLevel1Effects();
+	CEffectObject *FindInactiveLevel1Effect();
+	void SpawnLevel1HitEffect(const XMFLOAT3& xmf3Position);
+	void SpawnLevel1ExplosionEffect(const XMFLOAT3& xmf3Position);
+	void SpawnPlayerHitEffect(const XMFLOAT3& xmf3Position);
 	void CheckProjectileTargetCollisions();
 	void CheckEnemyProjectilePlayerCollisions();
 	void ApplyDamageToLevel1Target(int nTargetIndex, int nDamage);
@@ -190,6 +200,8 @@ private:
 	CCamera						*m_pHudCamera = NULL;
 	CGameObject					**m_ppLevel1Decorations = NULL;
 	int							m_nLevel1Decorations = 0;
+	CEffectObject				**m_ppLevel1Effects = NULL;
+	int							m_nLevel1Effects = 0;
 	int							m_nPlayerMaxHP = 100;
 	int							m_nPlayerHP = 100;
 	int							m_nLastHitLevel1TargetIndex = -1;

@@ -8,6 +8,7 @@
 #include "Bullet.h"
 #include "HUD.h"
 #include "Decoration.h"
+#include "Effect.h"
 
 static const int UI_TITLE_OBJECT = 0;
 static const int UI_NAME_OBJECT = 1;
@@ -33,6 +34,7 @@ static const int HUD_PLAYER_GAUGE = 1;
 static const int HUD_ENEMY_BACKGROUND = 2;
 static const int HUD_ENEMY_GAUGE = 3;
 static const int MAX_ENEMY_PROJECTILES = 48;
+static const int LEVEL1_EFFECT_COUNT = 96;
 
 CScene::CScene()
 {
@@ -157,6 +159,7 @@ void CScene::ResetLevel1()
 	float fTerrainY = (m_pTerrain) ? m_pTerrain->GetHeight(fStartX, fStartZ) : 20.0f;
 	XMFLOAT3 xmf3StartPosition = XMFLOAT3(fStartX, fTerrainY + fStartAltitude, fStartZ);
 
+	m_pPlayer->ResetOrientation();
 	m_pPlayer->SetPosition(xmf3StartPosition);
 	m_pPlayer->SetVelocity(XMFLOAT3(0.0f, 0.0f, 0.0f));
 	ClampPlayerToTerrain();
@@ -171,6 +174,7 @@ void CScene::ResetLevel1()
 	}
 	for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i]) m_ppProjectiles[i]->Reset();
 	ResetEnemyProjectiles();
+	ResetLevel1Effects();
 	m_fProjectileFireCooldown = 0.0f;
 	m_nPlayerHP = m_nPlayerMaxHP;
 	m_nLastHitLevel1TargetIndex = -1;
@@ -509,6 +513,7 @@ void CScene::ApplyDamageToPlayer(int nDamage)
 {
 	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed) return;
 
+	SpawnPlayerHitEffect(m_pPlayer ? m_pPlayer->GetPosition() : XMFLOAT3(0.0f, 0.0f, 0.0f));
 	m_nPlayerHP -= nDamage;
 	if (m_nPlayerHP < 0) m_nPlayerHP = 0;
 
@@ -522,6 +527,7 @@ void CScene::ApplyDamageToPlayer(int nDamage)
 		m_fLevel1FailedElapsedTime = 0.0f;
 		if (m_ppGameObjects && m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]) m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]->m_xmf4x4Transform = m_xmf4x4Level1GameOverBaseTransform;
 		ResetEnemyProjectiles();
+		ResetLevel1Effects();
 		::OutputDebugStringA("[Level1] Mission Failed\n");
 	}
 }
@@ -676,12 +682,30 @@ void CScene::BuildLevel1Decorations(ID3D12Device *pd3dDevice, ID3D12GraphicsComm
 	const float fHelipadX = 0.0f;
 	const float fHelipadZ = -120.0f;
 	const XMFLOAT3 xmf3HelipadScale = XMFLOAT3(52.0f, 0.5f, 52.0f);
-	float fHelipadY = (m_pTerrain) ? m_pTerrain->GetHeight(fHelipadX, fHelipadZ) : 0.0f;
-	float fHelipadTopY = fHelipadY + xmf3HelipadScale.y + 0.08f;
+	const float fHelipadHalfX = xmf3HelipadScale.x * 0.5f;
+	const float fHelipadHalfZ = xmf3HelipadScale.z * 0.5f;
+	const XMFLOAT2 xmf2HelipadSamples[9] =
+	{
+		XMFLOAT2(0.0f, 0.0f), XMFLOAT2(-fHelipadHalfX, -fHelipadHalfZ), XMFLOAT2(fHelipadHalfX, -fHelipadHalfZ),
+		XMFLOAT2(-fHelipadHalfX, fHelipadHalfZ), XMFLOAT2(fHelipadHalfX, fHelipadHalfZ), XMFLOAT2(0.0f, -fHelipadHalfZ),
+		XMFLOAT2(0.0f, fHelipadHalfZ), XMFLOAT2(-fHelipadHalfX, 0.0f), XMFLOAT2(fHelipadHalfX, 0.0f)
+	};
+	float fMaxHelipadTerrainY = (m_pTerrain) ? m_pTerrain->GetHeight(fHelipadX, fHelipadZ) : 0.0f;
+	if (m_pTerrain)
+	{
+		for (int i = 1; i < _countof(xmf2HelipadSamples); i++)
+		{
+			float fSampleHeight = m_pTerrain->GetHeight(fHelipadX + xmf2HelipadSamples[i].x, fHelipadZ + xmf2HelipadSamples[i].y);
+			if (fSampleHeight > fMaxHelipadTerrainY) fMaxHelipadTerrainY = fSampleHeight;
+		}
+	}
+	const float fHelipadGroundClearance = 1.0f;
+	float fHelipadCenterY = fMaxHelipadTerrainY + xmf3HelipadScale.y * 0.5f + fHelipadGroundClearance;
+	float fHelipadTopY = fHelipadCenterY + xmf3HelipadScale.y * 0.5f + 0.15f;
 	CDecorationBoxObject *pHelipadObject = new CDecorationBoxObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.85f, 0.85f, 0.82f, 1.0f), XMFLOAT4(0.95f, 0.95f, 0.90f, 1.0f), XMFLOAT4(0.08f, 0.08f, 0.06f, 1.0f));
 	pHelipadObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnDecorationMaterials);
 	pHelipadObject->SetScale(xmf3HelipadScale.x, xmf3HelipadScale.y, xmf3HelipadScale.z);
-	pHelipadObject->SetPosition(XMFLOAT3(fHelipadX, fHelipadY + xmf3HelipadScale.y * 0.5f + 0.05f, fHelipadZ));
+	pHelipadObject->SetPosition(XMFLOAT3(fHelipadX, fHelipadCenterY, fHelipadZ));
 	m_ppLevel1Decorations[nDecorationIndex++] = pHelipadObject;
 
 	const XMFLOAT3 xmf3HScales[nHelipadMarkCount] = { XMFLOAT3(4.0f, 0.25f, 26.0f), XMFLOAT3(4.0f, 0.25f, 26.0f), XMFLOAT3(28.0f, 0.25f, 4.0f) };
@@ -718,6 +742,98 @@ void CScene::ReleaseLevel1Decorations()
 	}
 	m_nLevel1Decorations = 0;
 }
+void CScene::BuildLevel1Effects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList)
+{
+	ReleaseLevel1Effects();
+
+	m_nLevel1Effects = LEVEL1_EFFECT_COUNT;
+	m_ppLevel1Effects = new CEffectObject*[m_nLevel1Effects];
+	int pnEffectMaterials[1] = { 1 };
+	for (int i = 0; i < m_nLevel1Effects; i++)
+	{
+		m_ppLevel1Effects[i] = new CEffectObject(pd3dDevice, pd3dCommandList);
+		m_ppLevel1Effects[i]->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnEffectMaterials);
+	}
+}
+
+void CScene::ResetLevel1Effects()
+{
+	if (!m_ppLevel1Effects) return;
+	for (int i = 0; i < m_nLevel1Effects; i++) if (m_ppLevel1Effects[i]) m_ppLevel1Effects[i]->Reset();
+}
+
+void CScene::UpdateLevel1Effects(float fTimeElapsed)
+{
+	if (!m_ppLevel1Effects) return;
+	for (int i = 0; i < m_nLevel1Effects; i++) if (m_ppLevel1Effects[i] && m_ppLevel1Effects[i]->IsActive()) m_ppLevel1Effects[i]->Animate(fTimeElapsed, NULL);
+}
+
+void CScene::RenderLevel1Effects(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
+{
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed || !m_ppLevel1Effects) return;
+	for (int i = 0; i < m_nLevel1Effects; i++)
+	{
+		if (m_ppLevel1Effects[i] && m_ppLevel1Effects[i]->IsActive())
+		{
+			m_ppLevel1Effects[i]->Render(pd3dCommandList, pCamera, m_ppLevel1Effects[i]->m_ppd3dcbInstancingGameObjects, m_ppLevel1Effects[i]->m_ppcbMappedInstancingGameObjects);
+		}
+	}
+}
+
+void CScene::ReleaseLevel1Effects()
+{
+	if (m_ppLevel1Effects)
+	{
+		for (int i = 0; i < m_nLevel1Effects; i++) if (m_ppLevel1Effects[i]) m_ppLevel1Effects[i]->Release();
+		delete[] m_ppLevel1Effects;
+		m_ppLevel1Effects = NULL;
+	}
+	m_nLevel1Effects = 0;
+}
+
+CEffectObject *CScene::FindInactiveLevel1Effect()
+{
+	if (!m_ppLevel1Effects) return(NULL);
+	for (int i = 0; i < m_nLevel1Effects; i++) if (m_ppLevel1Effects[i] && !m_ppLevel1Effects[i]->IsActive()) return(m_ppLevel1Effects[i]);
+	return(NULL);
+}
+
+void CScene::SpawnLevel1HitEffect(const XMFLOAT3& xmf3Position)
+{
+	CEffectObject *pEffect = FindInactiveLevel1Effect();
+	if (!pEffect) return;
+	pEffect->Spawn(xmf3Position, XMFLOAT3(0.0f, 18.0f, 0.0f), 0.22f, 1.4f, 4.0f, XMFLOAT4(1.0f, 0.76f, 0.12f, 1.0f), XMFLOAT4(1.0f, 0.55f, 0.05f, 1.0f), XMFLOAT4(0.9f, 0.32f, 0.02f, 1.0f));
+}
+
+void CScene::SpawnLevel1ExplosionEffect(const XMFLOAT3& xmf3Position)
+{
+	const int nExplosionPieces = 12;
+	const XMFLOAT4 xmf4Ambients[4] = { XMFLOAT4(1.0f, 0.82f, 0.12f, 1.0f), XMFLOAT4(1.0f, 0.42f, 0.05f, 1.0f), XMFLOAT4(0.85f, 0.08f, 0.03f, 1.0f), XMFLOAT4(0.20f, 0.18f, 0.16f, 1.0f) };
+	const XMFLOAT4 xmf4Diffuses[4] = { XMFLOAT4(1.0f, 0.70f, 0.05f, 1.0f), XMFLOAT4(1.0f, 0.30f, 0.04f, 1.0f), XMFLOAT4(0.75f, 0.06f, 0.02f, 1.0f), XMFLOAT4(0.12f, 0.11f, 0.10f, 1.0f) };
+	const XMFLOAT4 xmf4Emissives[4] = { XMFLOAT4(1.0f, 0.45f, 0.02f, 1.0f), XMFLOAT4(0.9f, 0.20f, 0.01f, 1.0f), XMFLOAT4(0.45f, 0.03f, 0.01f, 1.0f), XMFLOAT4(0.03f, 0.025f, 0.02f, 1.0f) };
+	for (int i = 0; i < nExplosionPieces; i++)
+	{
+		CEffectObject *pEffect = FindInactiveLevel1Effect();
+		if (!pEffect) return;
+		float fAngle = XM_2PI * (float)i / (float)nExplosionPieces;
+		float fRadiusSpeed = 34.0f + (float)(i % 4) * 7.0f;
+		XMFLOAT3 xmf3Velocity = XMFLOAT3(cosf(fAngle) * fRadiusSpeed, 18.0f + (float)(i % 3) * 8.0f, sinf(fAngle) * fRadiusSpeed);
+		int nColor = i % 4;
+		pEffect->Spawn(xmf3Position, xmf3Velocity, 0.72f + (float)(i % 3) * 0.08f, 1.8f, 7.5f, xmf4Ambients[nColor], xmf4Diffuses[nColor], xmf4Emissives[nColor]);
+	}
+}
+
+void CScene::SpawnPlayerHitEffect(const XMFLOAT3& xmf3Position)
+{
+	for (int i = 0; i < 4; i++)
+	{
+		CEffectObject *pEffect = FindInactiveLevel1Effect();
+		if (!pEffect) return;
+		float fAngle = XM_PIDIV2 * (float)i;
+		XMFLOAT3 xmf3Velocity = XMFLOAT3(cosf(fAngle) * 12.0f, 12.0f, sinf(fAngle) * 12.0f);
+		pEffect->Spawn(xmf3Position, xmf3Velocity, 0.28f, 1.6f, 5.2f, XMFLOAT4(1.0f, 0.26f, 0.08f, 1.0f), XMFLOAT4(1.0f, 0.15f, 0.03f, 1.0f), XMFLOAT4(0.8f, 0.04f, 0.01f, 1.0f));
+	}
+}
 void CScene::CheckProjectileTargetCollisions()
 {
 	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed || !m_ppProjectiles || !m_pLevel1Targets) return;
@@ -744,6 +860,7 @@ void CScene::CheckProjectileTargetCollisions()
 			float fHitDistance = fProjectileRadius + target.m_fCollisionRadius;
 			if (fDistance <= fHitDistance)
 			{
+				SpawnLevel1HitEffect(xmf3ProjectilePosition);
 				pProjectile->Reset();
 				ApplyDamageToLevel1Target(j, 1);
 				break;
@@ -771,6 +888,7 @@ void CScene::ApplyDamageToLevel1Target(int nTargetIndex, int nDamage)
 		target.m_nHP = 0;
 		target.m_bDestroying = true;
 		target.m_fDestroyElapsedTime = 0.0f;
+		if ((target.m_nObjectIndex >= 0) && (target.m_nObjectIndex < m_nGameObjects) && m_ppGameObjects[target.m_nObjectIndex]) SpawnLevel1ExplosionEffect(m_ppGameObjects[target.m_nObjectIndex]->GetPosition());
 		sprintf_s(pstrDebug, "[Level1] Target destroyed: wave=%d, objectIndex=%d\n", target.m_nWave, target.m_nObjectIndex);
 		::OutputDebugStringA(pstrDebug);
 	}
@@ -811,6 +929,7 @@ void CScene::AdvanceLevel1WaveIfNeeded()
 	m_bLevel1Failed = false;
 	m_fLevel1FailedElapsedTime = 0.0f;
 		for (int i = 0; i < m_nLevel1Targets; i++) m_pLevel1Targets[i].m_bActive = false;
+		ResetLevel1Effects();
 		::OutputDebugStringA("[Level1] Mission Clear\n");
 	}
 }
@@ -1061,6 +1180,8 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 		m_ppEnemyProjectiles[i]->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnEnemyProjectileMaterials);
 	}
 
+	BuildLevel1Effects(pd3dDevice, pd3dCommandList);
+
 	m_nHudBars = HUD_BAR_COUNT;
 	m_ppHudBars = new CHudBarObject*[m_nHudBars];
 	int pnHudMaterials[1] = { 1 };
@@ -1119,6 +1240,7 @@ void CScene::ReleaseObjects()
 	}
 
 	ReleaseLevel1Decorations();
+	ReleaseLevel1Effects();
 
 	if (m_ppHudBars)
 	{
@@ -1224,6 +1346,7 @@ void CScene::ReleaseShaderVariables()
 	for (int i = 0; i < m_nEnemyProjectiles; i++) if (m_ppEnemyProjectiles[i]) m_ppEnemyProjectiles[i]->ReleaseShaderVariables();
 	for (int i = 0; i < m_nHudBars; i++) if (m_ppHudBars[i]) m_ppHudBars[i]->ReleaseShaderVariables();
 	for (int i = 0; i < m_nLevel1Decorations; i++) if (m_ppLevel1Decorations[i]) m_ppLevel1Decorations[i]->ReleaseShaderVariables();
+	for (int i = 0; i < m_nLevel1Effects; i++) if (m_ppLevel1Effects[i]) m_ppLevel1Effects[i]->ReleaseShaderVariables();
 }
 
 void CScene::ReleaseUploadBuffers()
@@ -1233,6 +1356,7 @@ void CScene::ReleaseUploadBuffers()
 	for (int i = 0; i < m_nEnemyProjectiles; i++) if (m_ppEnemyProjectiles[i]) m_ppEnemyProjectiles[i]->ReleaseUploadBuffers();
 	for (int i = 0; i < m_nHudBars; i++) if (m_ppHudBars[i]) m_ppHudBars[i]->ReleaseUploadBuffers();
 	for (int i = 0; i < m_nLevel1Decorations; i++) if (m_ppLevel1Decorations[i]) m_ppLevel1Decorations[i]->ReleaseUploadBuffers();
+	for (int i = 0; i < m_nLevel1Effects; i++) if (m_ppLevel1Effects[i]) m_ppLevel1Effects[i]->ReleaseUploadBuffers();
 }
 
 bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam, LPARAM lParam)
@@ -1377,17 +1501,20 @@ void CScene::AnimateObjects(float fTimeElapsed)
 		if (m_bLevel1Cleared)
 		{
 			m_fLevel1ClearElapsedTime += fTimeElapsed;
+			ResetLevel1Effects();
 			UpdateLevel1ClearText();
 		}
 		else if (m_bLevel1Failed)
 		{
 			m_fLevel1FailedElapsedTime += fTimeElapsed;
+			ResetLevel1Effects();
 			UpdateLevel1GameOverText();
 		}
 		else
 		{
 			for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i] && m_ppProjectiles[i]->IsActive()) m_ppProjectiles[i]->Animate(fTimeElapsed, NULL);
 			for (int i = 0; i < m_nEnemyProjectiles; i++) if (m_ppEnemyProjectiles[i] && m_ppEnemyProjectiles[i]->IsActive()) m_ppEnemyProjectiles[i]->Animate(fTimeElapsed, NULL);
+			UpdateLevel1Effects(fTimeElapsed);
 			UpdateLevel1Targets(fTimeElapsed);
 			UpdateLevel1EnemyFire(fTimeElapsed);
 			CheckProjectileTargetCollisions();
@@ -1468,5 +1595,7 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 					m_ppEnemyProjectiles[i]->Render(pd3dCommandList, pCamera, m_ppEnemyProjectiles[i]->m_ppd3dcbInstancingGameObjects, m_ppEnemyProjectiles[i]->m_ppcbMappedInstancingGameObjects);
 				}
 			}
+			RenderLevel1Effects(pd3dCommandList, pCamera);
 		}
-	}}
+	}
+}
