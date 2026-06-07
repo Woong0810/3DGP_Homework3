@@ -403,7 +403,8 @@ void CScene::OrientLevel1TargetToPlayer(int nTargetIndex)
 	if (Vector3::Length(xmf3ToPlayer) <= 0.001f) return;
 
 	XMFLOAT3 xmf3Look = Vector3::Normalize(xmf3ToPlayer);
-	const float fEnemyModelYawOffset = -90.0f;
+	// If enemy helicopters face sideways, adjust this value by +/-90 degrees.
+	const float fEnemyModelYawOffset = 0.0f;
 	float fYaw = XMConvertToDegrees(atan2f(xmf3Look.x, xmf3Look.z));
 	float fFinalYaw = fYaw + fEnemyModelYawOffset;
 
@@ -669,8 +670,8 @@ void CScene::UpdateLevel1HudBars()
 	const float fHudFullWidth = 225.0f;
 	const float fHudHeight = 3.5f;
 	const float fHudDepth = 0.5f;
-	const float fPlayerHudY = 48.0f;
-	const float fEnemyHudY = 41.0f;
+	const float fPlayerHudY = 60.0f;
+	const float fEnemyHudY = 53.0f;
 	const float fBackgroundZ = 0.0f;
 	const float fGaugeZ = -0.35f;
 
