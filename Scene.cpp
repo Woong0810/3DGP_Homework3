@@ -582,14 +582,32 @@ void CScene::BuildLevel1Decorations(ID3D12Device *pd3dDevice, ID3D12GraphicsComm
 {
 	ReleaseLevel1Decorations();
 
-	const int nTreeCount = 20;
-	const int nRockCount = 10;
+	const int nBaseTreeCount = 20;
+	const int nBaseRockCount = 10;
+	const int nTreeCount = nBaseTreeCount * 3;
+	const int nRockCount = nBaseRockCount * 3;
 	const int nHelipadCount = 1;
-	m_nLevel1Decorations = nTreeCount + nRockCount + nHelipadCount;
+	const int nHelipadMarkCount = 3;
+	m_nLevel1Decorations = nTreeCount + nRockCount + nHelipadCount + nHelipadMarkCount;
 	m_ppLevel1Decorations = new CGameObject*[m_nLevel1Decorations];
 	for (int i = 0; i < m_nLevel1Decorations; i++) m_ppLevel1Decorations[i] = NULL;
 
-	const XMFLOAT3 xmf3TreePositions[nTreeCount] =
+	FILE *pTreeFile = NULL;
+	bool bUseTreeModel = (fopen_s(&pTreeFile, "Model/Tree.bin", "rb") == 0);
+	if (pTreeFile) fclose(pTreeFile);
+	FILE *pRockFile = NULL;
+	bool bUseRockModel = (fopen_s(&pRockFile, "Model/Rock.bin", "rb") == 0);
+	if (pRockFile) fclose(pRockFile);
+	if (!bUseTreeModel || !bUseRockModel)
+	{
+		::OutputDebugStringA("[Level1] Decoration model load skipped: Model/Tree.bin or Model/Rock.bin is missing.\n");
+		ReleaseLevel1Decorations();
+		return;
+	}
+
+	const float fTreeYOffset = 0.0f;
+	const float fRockYOffset = 0.0f;
+	const XMFLOAT3 xmf3BaseTreePositions[nBaseTreeCount] =
 	{
 		XMFLOAT3(-360.0f, 0.0f, -40.0f), XMFLOAT3(-330.0f, 0.0f, 120.0f), XMFLOAT3(-300.0f, 0.0f, 310.0f), XMFLOAT3(-260.0f, 0.0f, 470.0f),
 		XMFLOAT3(-210.0f, 0.0f, 650.0f), XMFLOAT3(-170.0f, 0.0f, -230.0f), XMFLOAT3(-110.0f, 0.0f, 520.0f), XMFLOAT3(-70.0f, 0.0f, 760.0f),
@@ -597,79 +615,86 @@ void CScene::BuildLevel1Decorations(ID3D12Device *pd3dDevice, ID3D12GraphicsComm
 		XMFLOAT3(270.0f, 0.0f, -160.0f), XMFLOAT3(315.0f, 0.0f, 210.0f), XMFLOAT3(350.0f, 0.0f, 430.0f), XMFLOAT3(390.0f, 0.0f, 620.0f),
 		XMFLOAT3(-420.0f, 0.0f, 610.0f), XMFLOAT3(430.0f, 0.0f, 30.0f), XMFLOAT3(-250.0f, 0.0f, -360.0f), XMFLOAT3(255.0f, 0.0f, -330.0f)
 	};
-	const float pfTreeScales[nTreeCount] = { 1.4f, 1.1f, 1.6f, 1.25f, 1.45f, 1.0f, 1.35f, 1.55f, 1.2f, 1.5f, 1.15f, 1.35f, 1.05f, 1.4f, 1.6f, 1.25f, 1.5f, 1.2f, 1.3f, 1.45f };
-	const float pfTreeYaw[nTreeCount] = { 0.0f, 24.0f, 48.0f, 72.0f, 96.0f, 120.0f, 144.0f, 168.0f, 192.0f, 216.0f, 240.0f, 264.0f, 288.0f, 312.0f, 336.0f, 18.0f, 54.0f, 126.0f, 198.0f, 270.0f };
-
-	FILE *pTreeFile = NULL;
-	bool bUseTreeModel = (fopen_s(&pTreeFile, "Model/Tree.bin", "rb") == 0);
-	if (pTreeFile) fclose(pTreeFile);
+	const XMFLOAT2 xmf2TreeVariationOffsets[3] = { XMFLOAT2(0.0f, 0.0f), XMFLOAT2(42.0f, 58.0f), XMFLOAT2(-55.0f, -38.0f) };
+	const float pfTreeVariationScale[3] = { 0.82f, 1.08f, 1.32f };
 
 	int nDecorationIndex = 0;
 	int pnDecorationMaterials[1] = { 1 };
-	for (int i = 0; i < nTreeCount; i++, nDecorationIndex++)
+	for (int i = 0; i < nBaseTreeCount; i++)
 	{
-		float x = xmf3TreePositions[i].x;
-		float z = xmf3TreePositions[i].z;
-		float y = (m_pTerrain) ? m_pTerrain->GetHeight(x, z) : 0.0f;
-		if (bUseTreeModel)
+		for (int j = 0; j < 3; j++, nDecorationIndex++)
 		{
+			float x = xmf3BaseTreePositions[i].x + xmf2TreeVariationOffsets[j].x + ((i % 3) - 1) * 11.0f;
+			float z = xmf3BaseTreePositions[i].z + xmf2TreeVariationOffsets[j].y + ((i % 4) - 1.5f) * 13.0f;
+			float y = (m_pTerrain) ? m_pTerrain->GetHeight(x, z) : 0.0f;
+			float fTreeScale = pfTreeVariationScale[j] + (float)(i % 5) * 0.04f;
+			float fTreeYaw = fmodf((float)(i * 37 + j * 109), 360.0f);
+
 			int nMeshesInHierarchy = 0;
 			int pnMaterialsInHierarchy[64];
 			CGameObject *pTreeModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Tree.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
 			CGameObject *pTreeObject = new CGameObject();
 			pTreeObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
 			pTreeObject->SetChild(pTreeModel, true);
-			pTreeObject->SetScale(pfTreeScales[i], pfTreeScales[i], pfTreeScales[i]);
-			pTreeObject->Rotate(0.0f, pfTreeYaw[i], 0.0f);
-			pTreeObject->SetPosition(XMFLOAT3(x, y, z));
+			pTreeObject->SetScale(fTreeScale, fTreeScale, fTreeScale);
+			pTreeObject->Rotate(0.0f, fTreeYaw, 0.0f);
+			pTreeObject->SetPosition(XMFLOAT3(x, y + fTreeYOffset, z));
 			m_ppLevel1Decorations[nDecorationIndex] = pTreeObject;
-		}
-		else
-		{
-			CDecorationBoxObject *pFallbackTree = new CDecorationBoxObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.05f, 0.20f, 0.05f, 1.0f), XMFLOAT4(0.15f, 0.45f, 0.12f, 1.0f), XMFLOAT4(0.02f, 0.05f, 0.01f, 1.0f));
-			pFallbackTree->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnDecorationMaterials);
-			pFallbackTree->SetScale(6.0f * pfTreeScales[i], 16.0f * pfTreeScales[i], 6.0f * pfTreeScales[i]);
-			pFallbackTree->Rotate(0.0f, pfTreeYaw[i], 0.0f);
-			pFallbackTree->SetPosition(XMFLOAT3(x, y + 8.0f * pfTreeScales[i], z));
-			m_ppLevel1Decorations[nDecorationIndex] = pFallbackTree;
 		}
 	}
 
-	const XMFLOAT3 xmf3RockPositions[nRockCount] =
+	const XMFLOAT3 xmf3BaseRockPositions[nBaseRockCount] =
 	{
 		XMFLOAT3(-210.0f, 0.0f, -80.0f), XMFLOAT3(-150.0f, 0.0f, 160.0f), XMFLOAT3(-95.0f, 0.0f, 360.0f), XMFLOAT3(-30.0f, 0.0f, 610.0f), XMFLOAT3(70.0f, 0.0f, 240.0f),
 		XMFLOAT3(135.0f, 0.0f, -30.0f), XMFLOAT3(210.0f, 0.0f, 460.0f), XMFLOAT3(300.0f, 0.0f, 150.0f), XMFLOAT3(-320.0f, 0.0f, 420.0f), XMFLOAT3(360.0f, 0.0f, -250.0f)
 	};
-	const XMFLOAT3 xmf3RockScales[nRockCount] =
+	const XMFLOAT2 xmf2RockVariationOffsets[3] = { XMFLOAT2(0.0f, 0.0f), XMFLOAT2(32.0f, -46.0f), XMFLOAT2(-38.0f, 44.0f) };
+	const float pfRockVariationScale[3] = { 0.68f, 1.04f, 1.42f };
+	for (int i = 0; i < nBaseRockCount; i++)
 	{
-		XMFLOAT3(18.0f, 7.0f, 12.0f), XMFLOAT3(12.0f, 5.5f, 16.0f), XMFLOAT3(20.0f, 8.0f, 14.0f), XMFLOAT3(15.0f, 6.0f, 15.0f), XMFLOAT3(11.0f, 4.5f, 18.0f),
-		XMFLOAT3(17.0f, 7.5f, 13.0f), XMFLOAT3(19.0f, 6.5f, 16.0f), XMFLOAT3(13.0f, 5.0f, 12.0f), XMFLOAT3(21.0f, 8.0f, 18.0f), XMFLOAT3(16.0f, 6.5f, 12.0f)
-	};
-	const float pfRockYaw[nRockCount] = { 12.0f, 38.0f, 74.0f, 119.0f, 151.0f, 203.0f, 246.0f, 287.0f, 318.0f, 344.0f };
-	for (int i = 0; i < nRockCount; i++, nDecorationIndex++)
-	{
-		float x = xmf3RockPositions[i].x;
-		float z = xmf3RockPositions[i].z;
-		float y = (m_pTerrain) ? m_pTerrain->GetHeight(x, z) : 0.0f;
-		CDecorationBoxObject *pRockObject = new CDecorationBoxObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.18f, 0.18f, 0.18f, 1.0f), XMFLOAT4(0.36f, 0.36f, 0.34f, 1.0f), XMFLOAT4(0.02f, 0.02f, 0.018f, 1.0f));
-		pRockObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnDecorationMaterials);
-		pRockObject->SetScale(xmf3RockScales[i].x, xmf3RockScales[i].y, xmf3RockScales[i].z);
-		pRockObject->Rotate(0.0f, pfRockYaw[i], 0.0f);
-		pRockObject->SetPosition(XMFLOAT3(x, y + xmf3RockScales[i].y * 0.5f, z));
-		m_ppLevel1Decorations[nDecorationIndex] = pRockObject;
+		for (int j = 0; j < 3; j++, nDecorationIndex++)
+		{
+			float x = xmf3BaseRockPositions[i].x + xmf2RockVariationOffsets[j].x + ((i % 2) ? 12.0f : -12.0f);
+			float z = xmf3BaseRockPositions[i].z + xmf2RockVariationOffsets[j].y + ((i % 3) - 1) * 9.0f;
+			float y = (m_pTerrain) ? m_pTerrain->GetHeight(x, z) : 0.0f;
+			float fRockScale = pfRockVariationScale[j] + (float)(i % 4) * 0.05f;
+			float fRockYaw = fmodf((float)(i * 53 + j * 97 + 17), 360.0f);
+
+			int nMeshesInHierarchy = 0;
+			int pnMaterialsInHierarchy[64];
+			CGameObject *pRockModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Rock.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
+			CGameObject *pRockObject = new CGameObject();
+			pRockObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, nMeshesInHierarchy, pnMaterialsInHierarchy);
+			pRockObject->SetChild(pRockModel, true);
+			pRockObject->SetScale(fRockScale, fRockScale, fRockScale);
+			pRockObject->Rotate(0.0f, fRockYaw, 0.0f);
+			pRockObject->SetPosition(XMFLOAT3(x, y + fRockYOffset, z));
+			m_ppLevel1Decorations[nDecorationIndex] = pRockObject;
+		}
 	}
 
 	const float fHelipadX = 0.0f;
 	const float fHelipadZ = -120.0f;
 	const XMFLOAT3 xmf3HelipadScale = XMFLOAT3(52.0f, 0.5f, 52.0f);
 	float fHelipadY = (m_pTerrain) ? m_pTerrain->GetHeight(fHelipadX, fHelipadZ) : 0.0f;
-	CDecorationBoxObject *pHelipadObject = new CDecorationBoxObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.12f, 0.12f, 0.12f, 1.0f), XMFLOAT4(0.22f, 0.23f, 0.24f, 1.0f), XMFLOAT4(0.015f, 0.015f, 0.015f, 1.0f));
+	float fHelipadTopY = fHelipadY + xmf3HelipadScale.y + 0.08f;
+	CDecorationBoxObject *pHelipadObject = new CDecorationBoxObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.85f, 0.85f, 0.82f, 1.0f), XMFLOAT4(0.95f, 0.95f, 0.90f, 1.0f), XMFLOAT4(0.08f, 0.08f, 0.06f, 1.0f));
 	pHelipadObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnDecorationMaterials);
 	pHelipadObject->SetScale(xmf3HelipadScale.x, xmf3HelipadScale.y, xmf3HelipadScale.z);
 	pHelipadObject->SetPosition(XMFLOAT3(fHelipadX, fHelipadY + xmf3HelipadScale.y * 0.5f + 0.05f, fHelipadZ));
-	m_ppLevel1Decorations[nDecorationIndex] = pHelipadObject;
-}
+	m_ppLevel1Decorations[nDecorationIndex++] = pHelipadObject;
 
+	const XMFLOAT3 xmf3HScales[nHelipadMarkCount] = { XMFLOAT3(4.0f, 0.25f, 26.0f), XMFLOAT3(4.0f, 0.25f, 26.0f), XMFLOAT3(28.0f, 0.25f, 4.0f) };
+	const XMFLOAT3 xmf3HPositions[nHelipadMarkCount] = { XMFLOAT3(-12.0f, 0.0f, 0.0f), XMFLOAT3(12.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f) };
+	for (int i = 0; i < nHelipadMarkCount; i++, nDecorationIndex++)
+	{
+		CDecorationBoxObject *pHMarkObject = new CDecorationBoxObject(pd3dDevice, pd3dCommandList, XMFLOAT4(0.85f, 0.68f, 0.0f, 1.0f), XMFLOAT4(1.0f, 0.82f, 0.0f, 1.0f), XMFLOAT4(0.25f, 0.18f, 0.0f, 1.0f));
+		pHMarkObject->CreateShaderVariables(pd3dDevice, pd3dCommandList, 1, pnDecorationMaterials);
+		pHMarkObject->SetScale(xmf3HScales[i].x, xmf3HScales[i].y, xmf3HScales[i].z);
+		pHMarkObject->SetPosition(XMFLOAT3(fHelipadX + xmf3HPositions[i].x, fHelipadTopY + xmf3HScales[i].y * 0.5f, fHelipadZ + xmf3HPositions[i].z));
+		m_ppLevel1Decorations[nDecorationIndex] = pHMarkObject;
+	}
+}
 void CScene::RenderLevel1Decorations(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
 {
 	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed || !m_ppLevel1Decorations) return;
