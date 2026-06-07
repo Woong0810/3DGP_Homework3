@@ -551,9 +551,9 @@ void CGameFramework::FrameAdvance()
 #ifdef _WITH_PLAYER_TOP
 	m_pd3dCommandList->ClearDepthStencilView(d3dDsvCPUDescriptorHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, NULL);
 #endif
-	if (m_pPlayer && (!m_pScene || (m_pScene->IsLevelPlaying() && !m_pScene->IsLevel1Cleared()))) m_pPlayer->Render(m_pd3dCommandList, m_pCamera);
+	if (m_pPlayer && (!m_pScene || (m_pScene->IsLevelPlaying() && !m_pScene->IsLevel1Cleared() && !m_pScene->IsLevel1Failed()))) m_pPlayer->Render(m_pd3dCommandList, m_pCamera);
 
-	if (m_pScene && m_pScene->IsLevelPlaying() && !m_pScene->IsLevel1Cleared())
+	if (m_pScene && m_pScene->IsLevelPlaying() && !m_pScene->IsLevel1Cleared() && !m_pScene->IsLevel1Failed())
 	{
 		m_pd3dCommandList->ClearDepthStencilView(d3dDsvCPUDescriptorHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, NULL);
 		m_pScene->RenderLevel1HudOverlay(m_pd3dCommandList, m_pCamera);

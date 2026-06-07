@@ -24,7 +24,8 @@ static const int UI_MENU_START_COUNT = 4;
 static const int WORLD_OBJECT_START = 11;
 static const int WORLD_OBJECT_COUNT = 5;
 static const int LEVEL1_CLEAR_OBJECT = WORLD_OBJECT_START + WORLD_OBJECT_COUNT;
-static const int TOTAL_SCENE_OBJECTS = LEVEL1_CLEAR_OBJECT + 1;
+static const int LEVEL1_GAMEOVER_OBJECT = LEVEL1_CLEAR_OBJECT + 1;
+static const int TOTAL_SCENE_OBJECTS = LEVEL1_GAMEOVER_OBJECT + 1;
 static const int HUD_BAR_COUNT = 4;
 static const int HUD_PLAYER_BACKGROUND = 0;
 static const int HUD_PLAYER_GAUGE = 1;
@@ -167,6 +168,7 @@ void CScene::ResetLevel1()
 	m_bLevel1Failed = false;
 	m_fLevel1FailedElapsedTime = 0.0f;
 	if (m_ppGameObjects && m_ppGameObjects[LEVEL1_CLEAR_OBJECT]) m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->m_xmf4x4Transform = m_xmf4x4Level1ClearBaseTransform;
+	if (m_ppGameObjects && m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]) m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]->m_xmf4x4Transform = m_xmf4x4Level1GameOverBaseTransform;
 	ResetLevel1Targets();
 
 	char pstrDebug[128];
@@ -277,8 +279,8 @@ void CScene::InitializeLevel1Targets()
 	{
 		XMFLOAT3(-120.0f, 80.0f, 200.0f),
 		XMFLOAT3(+120.0f, 80.0f, 220.0f),
-		XMFLOAT3(0.0f, 95.0f, 430.0f),
-		XMFLOAT3(0.0f, 110.0f, 650.0f)
+		XMFLOAT3(0.0f, 95.0f, 330.0f),
+		XMFLOAT3(0.0f, 110.0f, 450.0f)
 	};
 	const int pnObjectIndices[4] = { nApache1Index, nApache2Index, nSuperCobraIndex, nMi24Index };
 	const int pnWaves[4] = { 1, 1, 2, 3 };
@@ -506,6 +508,7 @@ void CScene::ApplyDamageToPlayer(int nDamage)
 	{
 		m_bLevel1Failed = true;
 		m_fLevel1FailedElapsedTime = 0.0f;
+		if (m_ppGameObjects && m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]) m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]->m_xmf4x4Transform = m_xmf4x4Level1GameOverBaseTransform;
 		ResetEnemyProjectiles();
 		::OutputDebugStringA("[Level1] Mission Failed\n");
 	}
@@ -548,6 +551,20 @@ void CScene::UpdateLevel1ClearText()
 	pClearObject->SetPosition(XMFLOAT3(0.0f, fClearY, 0.0f));
 }
 
+void CScene::UpdateLevel1GameOverText()
+{
+	if (!m_bLevel1Failed) return;
+	if (!m_ppGameObjects || !m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]) return;
+
+	const float fGameOverBaseY = 0.0f;
+	const float fGameOverBobSpeed = 2.5f;
+	const float fGameOverBobAmplitude = 5.0f;
+	float fGameOverY = fGameOverBaseY + sinf(m_fLevel1FailedElapsedTime * fGameOverBobSpeed) * fGameOverBobAmplitude;
+
+	CGameObject *pGameOverObject = m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT];
+	pGameOverObject->m_xmf4x4Transform = m_xmf4x4Level1GameOverBaseTransform;
+	pGameOverObject->SetPosition(XMFLOAT3(0.0f, fGameOverY, 0.0f));
+}
 void CScene::CheckProjectileTargetCollisions()
 {
 	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed || !m_ppProjectiles || !m_pLevel1Targets) return;
@@ -719,7 +736,7 @@ void CScene::RenderLevel1HudBars(ID3D12GraphicsCommandList *pd3dCommandList, CCa
 
 void CScene::RenderLevel1HudOverlay(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera)
 {
-	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || !pd3dCommandList || !pCamera || !m_ppHudBars || !m_pHudCamera) return;
+	if ((m_nSceneMode != GAME_SCENE_LEVEL1) || m_bLevel1Cleared || m_bLevel1Failed || !pd3dCommandList || !pCamera || !m_ppHudBars || !m_pHudCamera) return;
 
 	UpdateLevel1HudBars();
 
@@ -747,11 +764,12 @@ bool CScene::IsVisibleObject(int nObject) const
 	if (m_nSceneMode == GAME_SCENE_LEVEL1)
 	{
 		if (nObject == LEVEL1_CLEAR_OBJECT) return(m_bLevel1Cleared);
+		if (nObject == LEVEL1_GAMEOVER_OBJECT) return(m_bLevel1Failed);
 		if (nObject == WORLD_OBJECT_START + 4) return(true);
 		if ((nObject >= WORLD_OBJECT_START) && (nObject < WORLD_OBJECT_START + 4)) return(IsActiveLevel1TargetObject(nObject));
 		return(false);
 	}
-	return((nObject >= WORLD_OBJECT_START) && (nObject != LEVEL1_CLEAR_OBJECT));
+	return((nObject >= WORLD_OBJECT_START) && (nObject != LEVEL1_CLEAR_OBJECT) && (nObject != LEVEL1_GAMEOVER_OBJECT));
 }
 
 bool CScene::IsStartTitleHover(int x, int y) const
@@ -818,6 +836,8 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_xmf4x4MenuEndBaseTransform = m_ppGameObjects[UI_END_OBJECT]->m_xmf4x4Transform;
 	m_ppGameObjects[LEVEL1_CLEAR_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Clear.bin", XMFLOAT3(0.0f, 0.0f, 0.0f), 28.0f);
 	m_xmf4x4Level1ClearBaseTransform = m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->m_xmf4x4Transform;
+	m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/GameOver.bin", XMFLOAT3(0.0f, 0.0f, 0.0f), 24.0f);
+	m_xmf4x4Level1GameOverBaseTransform = m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]->m_xmf4x4Transform;
 	int nMeshesInHierarchy = 0;
 	int pnMaterialsInHierarchy[64];
 	CGameObject *pApacheModel = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, "Model/Apache.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
@@ -1022,7 +1042,7 @@ void CScene::UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList)
 {
 	::memcpy(m_pcbMappedLights->m_pLights, m_pLights, sizeof(LIGHT) * m_nLights);
 
-	if ((m_nSceneMode < GAME_SCENE_TUTORIAL) || ((m_nSceneMode == GAME_SCENE_LEVEL1) && m_bLevel1Cleared))
+	if ((m_nSceneMode < GAME_SCENE_TUTORIAL) || ((m_nSceneMode == GAME_SCENE_LEVEL1) && (m_bLevel1Cleared || m_bLevel1Failed)))
 	{
 		XMFLOAT4 xmf4UiAmbient = XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f);
 		int nUiLights = 0;
@@ -1204,6 +1224,7 @@ void CScene::AnimateObjects(float fTimeElapsed)
 		else if (m_bLevel1Failed)
 		{
 			m_fLevel1FailedElapsedTime += fTimeElapsed;
+			UpdateLevel1GameOverText();
 		}
 		else
 		{
@@ -1228,7 +1249,7 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 {
 	pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
 
-	if ((m_nSceneMode < GAME_SCENE_TUTORIAL) || ((m_nSceneMode == GAME_SCENE_LEVEL1) && m_bLevel1Cleared))
+	if ((m_nSceneMode < GAME_SCENE_TUTORIAL) || ((m_nSceneMode == GAME_SCENE_LEVEL1) && (m_bLevel1Cleared || m_bLevel1Failed)))
 	{
 		pCamera->GenerateViewMatrix(XMFLOAT3(0.0f, 0.0f, -120.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
 	}
@@ -1247,6 +1268,16 @@ void CScene::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera
 		{
 			m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->UpdateTransform(NULL);
 			m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->Render(pd3dCommandList, pCamera, m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->m_ppd3dcbInstancingGameObjects, m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->m_ppcbMappedInstancingGameObjects);
+		}
+		return;
+	}
+
+	if ((m_nSceneMode == GAME_SCENE_LEVEL1) && m_bLevel1Failed)
+	{
+		if (m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT])
+		{
+			m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]->UpdateTransform(NULL);
+			m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]->Render(pd3dCommandList, pCamera, m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]->m_ppd3dcbInstancingGameObjects, m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]->m_ppcbMappedInstancingGameObjects);
 		}
 		return;
 	}

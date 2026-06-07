@@ -100,6 +100,7 @@ public:
 	bool ProcessInput(UCHAR *pKeysBuffer);
 	bool IsLevelPlaying() const { return(m_nSceneMode >= GAME_SCENE_TUTORIAL); }
 	bool IsLevel1Cleared() const { return(m_bLevel1Cleared); }
+	bool IsLevel1Failed() const { return(m_bLevel1Failed); }
 	void GetClearColor(float pfClearColor[4]) const;
     void AnimateObjects(float fTimeElapsed);
     void Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera=NULL);
@@ -140,6 +141,7 @@ private:
 	void OrientLevel1TargetToPlayer(int nTargetIndex);
 	void UpdateLevel1EnemyFire(float fTimeElapsed);
 	void UpdateLevel1ClearText();
+	void UpdateLevel1GameOverText();
 	void UpdateLevel1HudBars();
 	void RenderLevel1HudBars(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera);
 	void CheckProjectileTargetCollisions();
@@ -174,6 +176,7 @@ private:
 	XMFLOAT4X4				m_xmf4x4MenuStartBaseTransforms[4];
 	XMFLOAT4X4				m_xmf4x4MenuEndBaseTransform;
 	XMFLOAT4X4				m_xmf4x4Level1ClearBaseTransform;
+	XMFLOAT4X4				m_xmf4x4Level1GameOverBaseTransform;
 	CProjectileObject			**m_ppProjectiles = NULL;
 	int							m_nProjectiles = 0;
 	float						m_fProjectileFireCooldown = 0.0f;
