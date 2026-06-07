@@ -254,6 +254,26 @@ void CPlayer::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamer
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CAirplanePlayer
 
+static void OverrideHierarchyMaterialColor(CGameObject* pObject, const XMFLOAT4& xmf4Ambient, const XMFLOAT4& xmf4Diffuse, const XMFLOAT4& xmf4Specular, const XMFLOAT4& xmf4Emissive)
+{
+	if (!pObject) return;
+
+	for (int i = 0; i < pObject->m_nMaterials; i++)
+	{
+		CMaterial *pMaterial = pObject->m_ppMaterials[i];
+		if (pMaterial && pMaterial->m_pMaterialColors)
+		{
+			pMaterial->m_pMaterialColors->m_xmf4Ambient = xmf4Ambient;
+			pMaterial->m_pMaterialColors->m_xmf4Diffuse = xmf4Diffuse;
+			pMaterial->m_pMaterialColors->m_xmf4Specular = xmf4Specular;
+			pMaterial->m_pMaterialColors->m_xmf4Emissive = xmf4Emissive;
+		}
+	}
+
+	OverrideHierarchyMaterialColor(pObject->m_pChild, xmf4Ambient, xmf4Diffuse, xmf4Specular, xmf4Emissive);
+	OverrideHierarchyMaterialColor(pObject->m_pSibling, xmf4Ambient, xmf4Diffuse, xmf4Specular, xmf4Emissive);
+}
+
 CAirplanePlayer::CAirplanePlayer(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature)
 {
 	m_pCamera = ChangeCamera(/*SPACESHIP_CAMERA*/THIRD_PERSON_CAMERA, 0.0f);
@@ -263,6 +283,7 @@ CAirplanePlayer::CAirplanePlayer(ID3D12Device *pd3dDevice, ID3D12GraphicsCommand
 	//	CGameObject *pGameObject = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, "Model/Apache.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
 	CGameObject *pModelObject = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, "Model/Gunship.bin", &nMeshesInHierarchy, pnMaterialsInHierarchy);
 
+	OverrideHierarchyMaterialColor(pModelObject, XMFLOAT4(0.03f, 0.12f, 0.13f, 1.0f), XMFLOAT4(0.00f, 0.28f, 0.30f, 1.0f), XMFLOAT4(0.12f, 0.25f, 0.25f, 16.0f), XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f));
 	pModelObject->Rotate(15.0f, 0.0f, 0.0f);
 	pModelObject->SetScale(1.0f, 1.0f, 1.0f);
 	SetChild(pModelObject, true);
