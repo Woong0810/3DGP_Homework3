@@ -45,7 +45,8 @@ void CScene::GetClearColor(float pfClearColor[4]) const
 {
 	const float pfDefaultClearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	const float pfLevel1BattleClearColor[4] = { 0.42f, 0.52f, 0.58f, 1.0f };
-	const float *pfSourceClearColor = ((m_nSceneMode == GAME_SCENE_LEVEL1) && !m_bLevel1Cleared) ? pfLevel1BattleClearColor : pfDefaultClearColor;
+	const bool bLevel1BattleScreen = ((m_nSceneMode == GAME_SCENE_LEVEL1) && !m_bLevel1Cleared && !m_bLevel1Failed);
+	const float *pfSourceClearColor = bLevel1BattleScreen ? pfLevel1BattleClearColor : pfDefaultClearColor;
 	for (int i = 0; i < 4; i++) pfClearColor[i] = pfSourceClearColor[i];
 }
 
@@ -556,6 +557,7 @@ void CScene::UpdateLevel1GameOverText()
 	if (!m_bLevel1Failed) return;
 	if (!m_ppGameObjects || !m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]) return;
 
+	const float fGameOverBaseX = 35.0f;
 	const float fGameOverBaseY = 0.0f;
 	const float fGameOverBobSpeed = 2.5f;
 	const float fGameOverBobAmplitude = 5.0f;
@@ -563,7 +565,7 @@ void CScene::UpdateLevel1GameOverText()
 
 	CGameObject *pGameOverObject = m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT];
 	pGameOverObject->m_xmf4x4Transform = m_xmf4x4Level1GameOverBaseTransform;
-	pGameOverObject->SetPosition(XMFLOAT3(0.0f, fGameOverY, 0.0f));
+	pGameOverObject->SetPosition(XMFLOAT3(fGameOverBaseX, fGameOverY, 0.0f));
 }
 void CScene::CheckProjectileTargetCollisions()
 {
@@ -836,7 +838,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_xmf4x4MenuEndBaseTransform = m_ppGameObjects[UI_END_OBJECT]->m_xmf4x4Transform;
 	m_ppGameObjects[LEVEL1_CLEAR_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Clear.bin", XMFLOAT3(0.0f, 0.0f, 0.0f), 28.0f);
 	m_xmf4x4Level1ClearBaseTransform = m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->m_xmf4x4Transform;
-	m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/GameOver.bin", XMFLOAT3(0.0f, 0.0f, 0.0f), 24.0f);
+	m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/GameOver.bin", XMFLOAT3(35.0f, 0.0f, 0.0f), 18.0f);
 	m_xmf4x4Level1GameOverBaseTransform = m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]->m_xmf4x4Transform;
 	int nMeshesInHierarchy = 0;
 	int pnMaterialsInHierarchy[64];
