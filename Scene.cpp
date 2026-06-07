@@ -1448,7 +1448,7 @@ bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam,
 		int nSelectedMenuItem = -1;
 		if (IsMenuStartHover(x, y, &nSelectedMenuItem))
 		{
-			SetSceneMode((GAME_SCENE_MODE)(GAME_SCENE_TUTORIAL + nSelectedMenuItem));
+			SetSceneMode(GAME_SCENE_LEVEL1);
 			return(true);
 		}
 		if (IsMenuEndHover(x, y))
