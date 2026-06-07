@@ -158,6 +158,16 @@ void CScene::ResetLevel1()
 
 	m_pPlayer->SetPosition(xmf3StartPosition);
 	m_pPlayer->SetVelocity(XMFLOAT3(0.0f, 0.0f, 0.0f));
+	ClampPlayerToTerrain();
+
+	CCamera *pLevel1Camera = m_pPlayer->ChangeCamera(THIRD_PERSON_CAMERA, 0.0f);
+	if (pLevel1Camera)
+	{
+		XMFLOAT3 xmf3PlayerPosition = m_pPlayer->GetPosition();
+		pLevel1Camera->SetPosition(Vector3::Add(xmf3PlayerPosition, pLevel1Camera->GetOffset()));
+		pLevel1Camera->SetLookAt(xmf3PlayerPosition);
+		pLevel1Camera->RegenerateViewMatrix();
+	}
 	for (int i = 0; i < m_nProjectiles; i++) if (m_ppProjectiles[i]) m_ppProjectiles[i]->Reset();
 	ResetEnemyProjectiles();
 	m_fProjectileFireCooldown = 0.0f;
@@ -557,7 +567,7 @@ void CScene::UpdateLevel1GameOverText()
 	if (!m_bLevel1Failed) return;
 	if (!m_ppGameObjects || !m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]) return;
 
-	const float fGameOverBaseX = 35.0f;
+	const float fGameOverBaseX = 80.0f;
 	const float fGameOverBaseY = 0.0f;
 	const float fGameOverBobSpeed = 2.5f;
 	const float fGameOverBobAmplitude = 5.0f;
@@ -838,7 +848,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	m_xmf4x4MenuEndBaseTransform = m_ppGameObjects[UI_END_OBJECT]->m_xmf4x4Transform;
 	m_ppGameObjects[LEVEL1_CLEAR_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/Clear.bin", XMFLOAT3(0.0f, 0.0f, 0.0f), 28.0f);
 	m_xmf4x4Level1ClearBaseTransform = m_ppGameObjects[LEVEL1_CLEAR_OBJECT]->m_xmf4x4Transform;
-	m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/GameOver.bin", XMFLOAT3(35.0f, 0.0f, 0.0f), 18.0f);
+	m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT] = CreateTextObject(pd3dDevice, pd3dCommandList, "Model/GameOver.bin", XMFLOAT3(80.0f, 0.0f, 0.0f), 18.0f);
 	m_xmf4x4Level1GameOverBaseTransform = m_ppGameObjects[LEVEL1_GAMEOVER_OBJECT]->m_xmf4x4Transform;
 	int nMeshesInHierarchy = 0;
 	int pnMaterialsInHierarchy[64];

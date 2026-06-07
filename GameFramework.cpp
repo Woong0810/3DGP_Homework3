@@ -521,6 +521,8 @@ void CGameFramework::FrameAdvance()
 
     AnimateObjects();
 
+	if (m_pPlayer) m_pCamera = m_pPlayer->GetCamera();
+
 	HRESULT hResult = m_pd3dCommandAllocator->Reset();
 	hResult = m_pd3dCommandList->Reset(m_pd3dCommandAllocator, NULL);
 

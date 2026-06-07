@@ -21,8 +21,6 @@ protected:
 	float           			m_fPitch;
 	float           			m_fYaw;
 	float           			m_fRoll;
-	float						m_fFirstPersonPitch;
-	float						m_fThirdPersonPitch;
 
 	XMFLOAT3					m_xmf3Velocity;
 	XMFLOAT3     				m_xmf3Gravity;
