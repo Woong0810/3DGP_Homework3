@@ -129,6 +129,7 @@
   <ItemGroup>
     <ClInclude Include="Bullet.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Decoration.h" />
     <ClInclude Include="GameFramework.h" />
     <ClInclude Include="HUD.h" />
     <ClInclude Include="LabProject07-9-1-3.h" />
@@ -146,6 +147,7 @@
   <ItemGroup>
     <ClCompile Include="Bullet.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Decoration.cpp" />
     <ClCompile Include="GameFramework.cpp" />
     <ClCompile Include="HUD.cpp" />
     <ClCompile Include="LabProject07-9-1-3.cpp" />

@@ -144,6 +144,9 @@ private:
 	void UpdateLevel1GameOverText();
 	void UpdateLevel1HudBars();
 	void RenderLevel1HudBars(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera);
+	void BuildLevel1Decorations(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList);
+	void RenderLevel1Decorations(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamera);
+	void ReleaseLevel1Decorations();
 	void CheckProjectileTargetCollisions();
 	void CheckEnemyProjectilePlayerCollisions();
 	void ApplyDamageToLevel1Target(int nTargetIndex, int nDamage);
@@ -185,6 +188,8 @@ private:
 	CHudBarObject				**m_ppHudBars = NULL;
 	int							m_nHudBars = 0;
 	CCamera						*m_pHudCamera = NULL;
+	CGameObject					**m_ppLevel1Decorations = NULL;
+	int							m_nLevel1Decorations = 0;
 	int							m_nPlayerMaxHP = 100;
 	int							m_nPlayerHP = 100;
 	int							m_nLastHitLevel1TargetIndex = -1;
